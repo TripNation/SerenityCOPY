@@ -62,7 +62,7 @@ let lastStatsFetchTime = 0;
 const STATS_CACHE_TTL_MS = parseInt(process.env.STATS_CACHE_TTL_MS, 10) || 60000; // 60 seconds
 
 async function fetchCloudflareStats() {
-  const cfUrl = process.env.CLOUDFLARE_STATS_URL;
+  const cfUrl = process.env.CLOUDFLARE_STATS_URL || 'https://serenity-active.makimnaritn.workers.dev/stats';
   if (!cfUrl) return null;
 
   try {
@@ -128,18 +128,16 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // 2. Fetch from Cloudflare if configured
-    if (process.env.CLOUDFLARE_STATS_URL) {
-      const cfStats = await fetchCloudflareStats();
-      if (cfStats) {
-        cachedStats = cfStats;
-        lastStatsFetchTime = now;
-        return res.status(200).json({
-          success: true,
-          ...cachedStats,
-          cached: false
-        });
-      }
+    // 2. Fetch from Cloudflare worker
+    const cfStats = await fetchCloudflareStats();
+    if (cfStats) {
+      cachedStats = cfStats;
+      lastStatsFetchTime = now;
+      return res.status(200).json({
+        success: true,
+        ...cachedStats,
+        cached: false
+      });
     }
 
     // 3. Fallback: Local telemetry tracker
