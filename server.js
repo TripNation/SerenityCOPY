@@ -6,6 +6,7 @@ const path = require('path');
 const announcementsRouter = require('./routes/announcements');
 const authRouter = require('./routes/auth');
 const { router: statsRouter } = require('./routes/stats');
+const chatRouter = require('./routes/chat');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -36,6 +37,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API Routes
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/chat', chatRouter);
 app.use('/api', authRouter);
 
 // Fallback for undefined API endpoints
