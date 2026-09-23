@@ -16,7 +16,8 @@ const SUPPORTED_LANGS = [
   { code: 'id', name: 'Indonesian', room: 'indonesian' },
   { code: 'tl', name: 'Tagalog', room: 'philippines' },
   { code: 'vi', name: 'Vietnamese', room: 'vietnam' },
-  { code: 'pt', name: 'Portuguese', room: 'brazilian' }
+  { code: 'pt', name: 'Portuguese', room: 'brazilian' },
+  { code: 'es', name: 'Spanish', room: 'spanish' }
 ];
 
 /**
@@ -103,7 +104,8 @@ async function translateMessageToAll(text) {
     id: clean,
     tl: clean,
     vi: clean,
-    pt: clean
+    pt: clean,
+    es: clean
   };
 
   if (!clean) return translations;

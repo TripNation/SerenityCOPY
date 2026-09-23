@@ -914,9 +914,11 @@ let currentWebChatRoom = 'general';
 let webChatMessagesList = [];
 let webChatLastMessageId = 0;
 let webChatSearchQuery = '';
+let isWebChatMuted = false;
 
 const WebChatRoomLangMap = {
   general: 'en',
+  spanish: 'es',
   indonesian: 'id',
   philippines: 'tl',
   vietnam: 'vi',
@@ -928,11 +930,62 @@ function initWebChat() {
   setInterval(fetchWebChatMessages, 2500);
 }
 
+function updateChatMuteUI(isMuted) {
+  const btn = document.getElementById('btnToggleChatMute');
+  const icon = document.getElementById('chatMuteIcon');
+  const text = document.getElementById('chatMuteText');
+  if (!btn) return;
+
+  if (isMuted) {
+    btn.classList.add('muted');
+    if (icon) icon.textContent = '🔒';
+    if (text) text.textContent = 'Chat Muted (Staff Only)';
+  } else {
+    btn.classList.remove('muted');
+    if (icon) icon.textContent = '🔓';
+    if (text) text.textContent = 'Mute Chat (Staff Only)';
+  }
+}
+
+async function toggleGlobalChatMute() {
+  const adminPass = getSavedAdminPassword() || 'SerenityAdmin2026!';
+  const targetMute = !isWebChatMuted;
+
+  try {
+    const res = await fetch('/api/chat/mute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPass
+      },
+      body: JSON.stringify({ muted: targetMute, adminPassword: adminPass })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      isWebChatMuted = data.isChatMuted;
+      updateChatMuteUI(isWebChatMuted);
+      showToast(data.message || (isWebChatMuted ? 'Chat locked to Staff Only' : 'Chat unlocked for everyone'), 'info');
+      fetchWebChatMessages();
+    } else {
+      showToast(data.error || 'Failed to toggle mute. Check Admin password.', 'error');
+    }
+  } catch (err) {
+    console.error('Error toggling chat mute:', err);
+    showToast('Failed to contact chat server', 'error');
+  }
+}
+
 async function fetchWebChatMessages() {
   try {
     const res = await fetch(`/api/chat/messages?after=${webChatLastMessageId}&limit=50&_t=${Date.now()}`);
     if (!res.ok) return;
     const data = await res.json();
+
+    if (data.isChatMuted !== undefined && isWebChatMuted !== data.isChatMuted) {
+      isWebChatMuted = data.isChatMuted;
+      updateChatMuteUI(isWebChatMuted);
+    }
 
     if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
       let hasNew = false;
@@ -999,16 +1052,21 @@ async function sendWebChatMessage() {
   const text = input.value.trim();
   if (!text) return;
 
+  const nameInput = document.getElementById('webChatSenderName');
+  const roleSelect = document.getElementById('webChatSenderRole');
+  const chosenName = (nameInput ? nameInput.value.trim() : '') || 'Chris';
+  const chosenRole = (roleSelect ? roleSelect.value : '') || 'Owner';
+
   const adminPass = getSavedAdminPassword() || 'SerenityAdmin2026!';
 
   const payload = {
     userId: '1',
-    username: 'Owner',
-    displayName: 'Chris',
+    username: chosenRole,
+    displayName: chosenName,
     gameName: 'Web Dashboard',
     room: currentWebChatRoom,
     message: text,
-    role: 'Owner',
+    role: chosenRole,
     adminPassword: adminPass
   };
 
@@ -1078,17 +1136,26 @@ function renderWebChatMessages() {
 
   let html = '';
   for (const msg of filtered) {
-    const isOwner = msg.isAdmin || msg.role === 'Owner';
+    const isOwner = msg.role === 'Owner' || (msg.isAdmin && !msg.role);
     const isAdmin = msg.role === 'Admin';
+    const isDev = msg.role === 'Dev';
     const isSystem = msg.system === true;
+    const isStaffOrSys = isOwner || isAdmin || isDev || isSystem;
 
     // Avatar URL: Roblox Headshot or Serenity Logo
     let avatarSrc = 'serenity_logo_v2.png';
-    if (!isSystem && !isOwner && msg.userId && msg.userId !== '0' && msg.userId !== '1') {
+    if (!isStaffOrSys && msg.userId && msg.userId !== '0' && msg.userId !== '1') {
       avatarSrc = `https://www.roblox.com/headshot-thumbnail/image?userId=${msg.userId}&width=48&height=48&format=png`;
     }
 
-    const uName = escapeHtml(msg.displayName || msg.username || 'Anonymous');
+    // Name formatting: Staff/Owner/Dev keep real name, regular Roblox players masked (e.g. Tri*****)
+    const rawName = msg.displayName || msg.username || 'Anonymous';
+    let formattedName = rawName;
+    if (!isStaffOrSys) {
+      formattedName = rawName.slice(0, 3) + '*****';
+    }
+
+    const uName = escapeHtml(formattedName);
     const gameTag = escapeHtml(msg.gameName || 'Roblox Player');
     const timeStr = escapeHtml(msg.time || '');
 
@@ -1105,13 +1172,18 @@ function renderWebChatMessages() {
     }
 
     const colorIdx = Math.abs(msg.id) % nameColors.length;
-    const nameColor = isOwner ? '#ffd700' : nameColors[colorIdx];
+    let nameColor = nameColors[colorIdx];
+    if (isOwner) nameColor = '#ffd700';
+    else if (isAdmin) nameColor = '#00d2ff';
+    else if (isDev) nameColor = '#c084fc';
 
     let badgeHtml = '';
     if (isOwner) {
       badgeHtml = '<span class="webmsg-badge-owner">OWNER</span>';
     } else if (isAdmin) {
       badgeHtml = '<span class="webmsg-badge-admin">ADMIN</span>';
+    } else if (isDev) {
+      badgeHtml = '<span class="webmsg-badge-dev">DEV</span>';
     } else if (isSystem) {
       badgeHtml = '<span class="webmsg-badge-system">SYSTEM</span>';
     }

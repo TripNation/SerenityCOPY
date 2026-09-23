@@ -2076,12 +2076,99 @@ body {
   border-radius: 4px;
 }
 
+.webmsg-badge-dev {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Chat Mute Button */
+.btn-chat-mute {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-chat-mute:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fff;
+}
+
+.btn-chat-mute.muted {
+  background: #dc2626;
+  border-color: #ef4444;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+  animation: pulseMute 2s infinite ease-in-out;
+}
+
+@keyframes pulseMute {
+  0%, 100% { box-shadow: 0 0 8px rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 16px rgba(220, 38, 38, 0.8); }
+}
+
 /* Bottom Input Bar */
 .webchat-input-bar {
   display: flex;
   gap: 10px;
   align-items: center;
   margin-top: 14px;
+}
+
+.webchat-role-select {
+  background: #1e2333;
+  border: 1px solid #363e56;
+  color: #ffd700;
+  border-radius: 8px;
+  padding: 10px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.webchat-role-select:focus {
+  border-color: #ffd700;
+}
+
+.webchat-role-select option {
+  background: #0f1118;
+  color: #fff;
+}
+
+.webchat-sender-input {
+  width: 100px;
+  background: #181b26;
+  border: 1px solid #282d3e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.webchat-sender-input:focus {
+  border-color: #0084ff;
 }
 
 .input-name-tag {

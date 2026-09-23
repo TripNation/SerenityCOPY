@@ -41,17 +41,19 @@ local ChatConfig = {
     ToggleKey = Enum.KeyCode.RightShift
 }
 
--- Rooms list from reference UI
+-- Rooms list from reference UI (clean pills without red dots)
 local RoomsList = {
-    { id = "general", name = "General", hasDot = false },
-    { id = "indonesian", name = "Indonesian", hasDot = true },
-    { id = "philippines", name = "Philippines", hasDot = true },
-    { id = "vietnam", name = "Vietnam", hasDot = true },
-    { id = "brazilian", name = "Brazilian", hasDot = true }
+    { id = "general", name = "General" },
+    { id = "spanish", name = "Spanish" },
+    { id = "indonesian", name = "Indonesian" },
+    { id = "philippines", name = "Philippines" },
+    { id = "vietnam", name = "Vietnam" },
+    { id = "brazilian", name = "Brazilian" }
 }
 
 -- State
 local currentRoom = "general"
+local isChatMuted = false
 local lastMessageId = 0
 local activeBaseUrl = nil
 local lastSendTime = 0
@@ -335,67 +337,34 @@ liveNetLbl.TextSize = 12
 liveNetLbl.TextXAlignment = Enum.TextXAlignment.Left
 liveNetLbl.Parent = subHeader
 
--- "Rooms" Pill
-local roomsPill = Instance.new("Frame")
-roomsPill.Name = "RoomsPill"
-roomsPill.Size = UDim2.new(0, 68, 0, 24)
-roomsPill.Position = UDim2.new(0, 108, 0, 1)
-roomsPill.BackgroundColor3 = Color3.fromRGB(24, 27, 36)
-roomsPill.BorderSizePixel = 0
-roomsPill.Parent = subHeader
+-- Mute Status Pill (shows only when chat is muted by staff)
+local muteBadge = Instance.new("Frame")
+muteBadge.Name = "MuteBadge"
+muteBadge.Size = UDim2.new(0, 110, 0, 22)
+muteBadge.Position = UDim2.new(0, 105, 0, 2)
+muteBadge.BackgroundColor3 = Color3.fromRGB(45, 20, 25)
+muteBadge.BorderSizePixel = 0
+muteBadge.Visible = false
+muteBadge.Parent = subHeader
 
-local rCorner = Instance.new("UICorner")
-rCorner.CornerRadius = UDim.new(0, 6)
-rCorner.Parent = roomsPill
+local mbCorner = Instance.new("UICorner")
+mbCorner.CornerRadius = UDim.new(0, 6)
+mbCorner.Parent = muteBadge
 
-local rStroke = Instance.new("UIStroke")
-rStroke.Color = Color3.fromRGB(40, 44, 58)
-rStroke.Thickness = 0.8
-rStroke.Parent = roomsPill
+local mbStroke = Instance.new("UIStroke")
+mbStroke.Color = Color3.fromRGB(220, 60, 75)
+mbStroke.Thickness = 0.8
+mbStroke.Parent = muteBadge
 
-local rText = Instance.new("TextLabel")
-rText.Name = "Label"
-rText.Size = UDim2.new(1, 0, 1, 0)
-rText.BackgroundTransparency = 1
-rText.Text = "Rooms"
-rText.TextColor3 = Color3.fromRGB(220, 225, 235)
-rText.Font = Enum.Font.GothamMedium
-rText.TextSize = 11
-rText.Parent = roomsPill
-
--- "🔴 Hidden" Pill
-local hiddenPill = Instance.new("TextButton")
-hiddenPill.Name = "HiddenPill"
-hiddenPill.Size = UDim2.new(0, 74, 0, 24)
-hiddenPill.Position = UDim2.new(0, 184, 0, 1)
-hiddenPill.BackgroundColor3 = Color3.fromRGB(20, 23, 31)
-hiddenPill.BorderSizePixel = 0
-hiddenPill.Text = "• Hidden"
-hiddenPill.TextColor3 = Color3.fromRGB(150, 155, 170)
-hiddenPill.Font = Enum.Font.GothamMedium
-hiddenPill.TextSize = 11
-hiddenPill.Parent = subHeader
-
-local hCorner = Instance.new("UICorner")
-hCorner.CornerRadius = UDim.new(0, 6)
-hCorner.Parent = hiddenPill
-
-local hStroke = Instance.new("UIStroke")
-hStroke.Color = Color3.fromRGB(36, 40, 52)
-hStroke.Thickness = 0.8
-hStroke.Parent = hiddenPill
-
-local hDot = Instance.new("Frame")
-hDot.Name = "Dot"
-hDot.Size = UDim2.new(0, 6, 0, 6)
-hDot.Position = UDim2.new(0, 9, 0.5, -3)
-hDot.BackgroundColor3 = Color3.fromRGB(235, 75, 75)
-hDot.BorderSizePixel = 0
-hDot.Parent = hiddenPill
-
-local hdCorner = Instance.new("UICorner")
-hdCorner.CornerRadius = UDim.new(1, 0)
-hdCorner.Parent = hDot
+local mbText = Instance.new("TextLabel")
+mbText.Name = "Label"
+mbText.Size = UDim2.new(1, 0, 1, 0)
+mbText.BackgroundTransparency = 1
+mbText.Text = "🔒 Staff Only"
+mbText.TextColor3 = Color3.fromRGB(255, 120, 130)
+mbText.Font = Enum.Font.GothamBold
+mbText.TextSize = 10
+mbText.Parent = muteBadge
 
 -- Right: "🟢 8052 online"
 local onlineStatusFrame = Instance.new("Frame")
@@ -705,7 +674,7 @@ local function RenderRoomPills()
 
         local rbPad = Instance.new("UIPadding")
         rbPad.PaddingLeft = UDim.new(0, 14)
-        rbPad.PaddingRight = UDim.new(0, rData.hasDot and 20 or 14)
+        rbPad.PaddingRight = UDim.new(0, 14)
         rbPad.Parent = rBtn
 
         local rbLbl = Instance.new("TextLabel")
@@ -718,20 +687,6 @@ local function RenderRoomPills()
         rbLbl.Font = Enum.Font.GothamMedium
         rbLbl.TextSize = 11
         rbLbl.Parent = rBtn
-
-        if rData.hasDot then
-            local rDot = Instance.new("Frame")
-            rDot.Name = "Dot"
-            rDot.Size = UDim2.new(0, 6, 0, 6)
-            rDot.Position = UDim2.new(1, 8, 0.5, -3)
-            rDot.BackgroundColor3 = Color3.fromRGB(235, 75, 75)
-            rDot.BorderSizePixel = 0
-            rDot.Parent = rbLbl
-
-            local rdCorner = Instance.new("UICorner")
-            rdCorner.CornerRadius = UDim.new(1, 0)
-            rdCorner.Parent = rDot
-        end
 
         rBtn.MouseButton1Click:Connect(function()
             if currentRoom ~= rData.id then
@@ -799,20 +754,27 @@ end
 MakeDraggable(headerBar, mainWindow)
 MakeDraggable(floatingPill, floatingPill)
 
+local RoomLanguageMap = {
+    general = "en",
+    spanish = "es",
+    indonesian = "id",
+    philippines = "tl",
+    vietnam = "vi",
+    brazilian = "pt"
+}
+
 -- ==============================================================================
 -- Format Mentions (@username) in Vibrant Cyan/Blue
 -- ==============================================================================
 local function FormatMentions(rawText)
     if not rawText then return "" end
-    -- Escape XML special characters first
     local safe = rawText:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
-    -- Format @mentions
     safe = safe:gsub("(@[%w_]+)", "<font color=\"rgb(75,160,255)\">%1</font>")
     return safe
 end
 
 -- ==============================================================================
--- Render Individual Message Item (Exact Sena Style)
+-- Render Individual Message Item (Exact Sena Style + Auto Translation)
 -- ==============================================================================
 local function CreateMessageRow(msg)
     local row = Instance.new("Frame")
@@ -832,8 +794,18 @@ local function CreateMessageRow(msg)
     avatar.BackgroundColor3 = Color3.fromRGB(24, 27, 36)
     avatar.BorderSizePixel = 0
     
-    local uid = tonumber(msg.userId) or 1
-    avatar.Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=48&h=48", uid)
+    local isSystem = msg.system == true
+    local isOwner = msg.role == "Owner" or (msg.isAdmin == true and msg.role ~= "Admin" and msg.role ~= "Dev")
+    local isAdmin = msg.role == "Admin" or (msg.isAdmin == true and not isOwner)
+    local isDev = msg.role == "Dev"
+    local isStaff = isOwner or isAdmin or isDev or isSystem
+
+    if isStaff then
+        avatar.Image = "rbxassetid://10709790644"
+    else
+        local uid = tonumber(msg.userId) or 1
+        avatar.Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=48&h=48", uid)
+    end
     avatar.ScaleType = Enum.ScaleType.Fit
     avatar.Parent = row
 
@@ -848,8 +820,13 @@ local function CreateMessageRow(msg)
     headerLine.Position = UDim2.new(0, 48, 0, 0)
     headerLine.BackgroundTransparency = 1
     
-    local uName = tostring(msg.username or "Anonymous")
-    -- Subtle censor if desired or show real username
+    local rawName = tostring(msg.displayName or msg.username or "Anonymous")
+    local uName = rawName
+    if not isStaff then
+        local prefix = rawName:sub(1, 3)
+        uName = prefix .. "*****"
+    end
+
     local gameTag = tostring(msg.gameName or "Steal An Egg")
     local timeStr = tostring(msg.time or "11:01")
 
@@ -861,16 +838,52 @@ local function CreateMessageRow(msg)
         Color3.fromRGB(255, 215, 125), -- soft amber
         Color3.fromRGB(195, 165, 255)  -- soft violet
     }
-    local colorIdx = ((tonumber(msg.userId) or #uName) % #nameColors) + 1
+    local colorIdx = ((tonumber(msg.userId) or #rawName) % #nameColors) + 1
     local nameColor = nameColors[colorIdx]
+    if isOwner then
+        nameColor = Color3.fromRGB(255, 215, 0)
+    elseif isAdmin then
+        nameColor = Color3.fromRGB(0, 210, 255)
+    elseif isDev then
+        nameColor = Color3.fromRGB(192, 132, 252)
+    end
+
+    -- Role Badges for Owner / Admin / Dev / System
+    local roleTag = ""
+    if isSystem then
+        roleTag = "<font color=\"rgb(255,170,0)\"><b>[SYSTEM]</b></font> "
+    elseif isOwner then
+        roleTag = "<font color=\"rgb(255,215,0)\"><b>[OWNER]</b></font> "
+    elseif isAdmin then
+        roleTag = "<font color=\"rgb(0,210,255)\"><b>[ADMIN]</b></font> "
+    elseif isDev then
+        roleTag = "<font color=\"rgb(192,132,252)\"><b>[DEV]</b></font> "
+    end
+
+    -- Dynamic Translation lookup based on current room
+    local langKey = RoomLanguageMap[currentRoom] or "en"
+    local rawText = tostring(msg.message or "")
+    local isTranslated = false
+
+    if msg.translations and type(msg.translations) == "table" and msg.translations[langKey] then
+        local tVal = tostring(msg.translations[langKey])
+        if tVal and tVal ~= "" and tVal ~= rawText then
+            rawText = tVal
+            isTranslated = true
+        end
+    end
+
+    local transBadge = isTranslated and "  <font color=\"rgb(80,180,255)\"><i>(translated)</i></font>" or ""
 
     headerLine.RichText = true
     headerLine.Text = string.format(
-        "<font color=\"rgb(%d,%d,%d)\"><b>%s</b></font>  <font color=\"rgb(130,138,155)\">%s  ·  %s</font>",
+        "%s<font color=\"rgb(%d,%d,%d)\"><b>%s</b></font>  <font color=\"rgb(130,138,155)\">%s  ·  %s</font>%s",
+        roleTag,
         nameColor.R * 255, nameColor.G * 255, nameColor.B * 255,
         uName,
         gameTag,
-        timeStr
+        timeStr,
+        transBadge
     )
     headerLine.Font = Enum.Font.GothamMedium
     headerLine.TextSize = 12
@@ -885,8 +898,8 @@ local function CreateMessageRow(msg)
     msgBody.AutomaticSize = Enum.AutomaticSize.Y
     msgBody.BackgroundTransparency = 1
     msgBody.RichText = true
-    msgBody.Text = FormatMentions(tostring(msg.message or ""))
-    msgBody.TextColor3 = Color3.fromRGB(225, 230, 240)
+    msgBody.Text = FormatMentions(rawText)
+    msgBody.TextColor3 = isSystem and Color3.fromRGB(255, 235, 175) or Color3.fromRGB(225, 230, 240)
     msgBody.Font = Enum.Font.GothamMedium
     msgBody.TextSize = 12
     msgBody.TextWrapped = true
@@ -900,7 +913,7 @@ local function CreateMessageRow(msg)
 end
 
 -- ==============================================================================
--- Filter & Render Message Feed
+-- Filter & Render Message Feed (Universal with Instant Language Switching)
 -- ==============================================================================
 function FilterAndRenderMessages()
     for _, child in ipairs(messagesScroll:GetChildren()) do
@@ -910,15 +923,20 @@ function FilterAndRenderMessages()
     end
 
     local qLower = searchQuery:lower()
+    local langKey = RoomLanguageMap[currentRoom] or "en"
 
     for _, msg in ipairs(allLoadedMessages) do
-        local roomMatch = (currentRoom == "all") or (not msg.room or msg.room:lower() == currentRoom:lower())
+        local displayTxt = tostring(msg.message or "")
+        if msg.translations and type(msg.translations) == "table" and msg.translations[langKey] then
+            displayTxt = tostring(msg.translations[langKey])
+        end
+
         local searchMatch = (qLower == "") 
-            or (msg.message and msg.message:lower():find(qLower, 1, true))
+            or (displayTxt and displayTxt:lower():find(qLower, 1, true))
             or (msg.username and msg.username:lower():find(qLower, 1, true))
             or (msg.gameName and msg.gameName:lower():find(qLower, 1, true))
 
-        if roomMatch and searchMatch then
+        if searchMatch then
             CreateMessageRow(msg)
         end
     end
@@ -945,34 +963,46 @@ local function FetchNewMessages()
     if not raw then return end
 
     local ok, data = pcall(function() return HttpService:JSONDecode(raw) end)
-    if ok and data and data.success and data.messages then
-        local hasNew = false
-        for _, msg in ipairs(data.messages) do
-            local msgId = tonumber(msg.id) or 0
-            if msgId > lastMessageId then
-                lastMessageId = msgId
-                table.insert(allLoadedMessages, msg)
-                hasNew = true
+    if ok and data and data.success then
+        if data.isChatMuted ~= nil and isChatMuted ~= data.isChatMuted then
+            isChatMuted = data.isChatMuted
+            muteBadge.Visible = isChatMuted
+            if isChatMuted then
+                chatInput.PlaceholderText = "🔒 Global chat is muted (Staff only)"
+            else
+                chatInput.PlaceholderText = "Type a message..."
             end
         end
 
-        if hasNew then
-            FilterAndRenderMessages()
-
-            if not isWindowVisible or isMinimized then
-                unreadCount = unreadCount + 1
-                unreadBadge.Text = tostring(unreadCount)
-                unreadBadge.Visible = true
+        if data.messages then
+            local hasNew = false
+            for _, msg in ipairs(data.messages) do
+                local msgId = tonumber(msg.id) or 0
+                if msgId > lastMessageId then
+                    lastMessageId = msgId
+                    table.insert(allLoadedMessages, msg)
+                    hasNew = true
+                end
             end
 
-            pcall(function()
-                local snd = Instance.new("Sound")
-                snd.SoundId = "rbxassetid://9069609268" -- clean pop
-                snd.Volume = 0.35
-                snd.Parent = SoundService
-                snd:Play()
-                game:GetService("Debris"):AddItem(snd, 2)
-            end)
+            if hasNew then
+                FilterAndRenderMessages()
+
+                if not isWindowVisible or isMinimized then
+                    unreadCount = unreadCount + 1
+                    unreadBadge.Text = tostring(unreadCount)
+                    unreadBadge.Visible = true
+                end
+
+                pcall(function()
+                    local snd = Instance.new("Sound")
+                    snd.SoundId = "rbxassetid://9069609268" -- clean pop
+                    snd.Volume = 0.35
+                    snd.Parent = SoundService
+                    snd:Play()
+                    game:GetService("Debris"):AddItem(snd, 2)
+                end)
+            end
         end
     end
 end
@@ -996,6 +1026,12 @@ end
 -- Send Chat Message
 -- ==============================================================================
 local function SendChatMessage()
+    if isChatMuted then
+        chatInput.Text = ""
+        chatInput.PlaceholderText = "🔒 Chat is currently muted by staff"
+        return
+    end
+
     local text = chatInput.Text
     if not text or text:match("^%s*$") then return end
 

@@ -102,7 +102,8 @@ function addMessage({ userId, username, displayName, message, gameName = "", roo
       id: cleanMsg,
       tl: cleanMsg,
       vi: cleanMsg,
-      pt: cleanMsg
+      pt: cleanMsg,
+      es: cleanMsg
     },
     isAdmin: !!isAdmin,
     role: role || (isAdmin ? "Owner" : null),
@@ -120,6 +121,17 @@ function addMessage({ userId, username, displayName, message, gameName = "", roo
   return newEntry;
 }
 
+let isChatMuted = false;
+
+function getChatMuted() {
+  return isChatMuted;
+}
+
+function setChatMuted(val) {
+  isChatMuted = !!val;
+  return isChatMuted;
+}
+
 function clearMessages() {
   inMemoryMessages = [];
   persistMessages();
@@ -129,5 +141,7 @@ function clearMessages() {
 module.exports = {
   getMessages,
   addMessage,
-  clearMessages
+  clearMessages,
+  getChatMuted,
+  setChatMuted
 };

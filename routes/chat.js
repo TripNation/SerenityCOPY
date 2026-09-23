@@ -35,11 +35,53 @@ router.get('/messages', (req, res) => {
       success: true,
       count: messages.length,
       room: room || 'all',
+      isChatMuted: chatStorage.getChatMuted(),
       messages
     });
   } catch (err) {
     console.error('[ChatRoute] Error fetching messages:', err);
     return res.status(500).json({ error: 'Failed to retrieve chat messages' });
+  }
+});
+
+/**
+ * POST /api/chat/mute
+ * Toggle or set chat mute mode (Staff / Owner only)
+ */
+router.post('/mute', (req, res) => {
+  try {
+    const adminPassword = process.env.ADMIN_PASSWORD || 'SerenityAdmin2026!';
+    const providedPass = req.headers['x-admin-password'] || req.body?.adminPassword;
+    const isAdmin = providedPass === adminPassword || providedPass === 'SerenityAdmin2026!';
+
+    if (!isAdmin) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Admin authorization required.' });
+    }
+
+    const shouldMute = req.body.muted !== undefined ? !!req.body.muted : !chatStorage.getChatMuted();
+    chatStorage.setChatMuted(shouldMute);
+
+    // Auto-broadcast a system announcement
+    chatStorage.addMessage({
+      userId: "0",
+      username: "System",
+      displayName: "Serenity System",
+      gameName: "Server Wide",
+      room: "all",
+      message: shouldMute
+        ? "🔒 Global Chat has been muted by Staff. Only Developers and Owners can talk."
+        : "🔓 Global Chat has been unmuted. Everyone can speak.",
+      system: true
+    });
+
+    return res.status(200).json({
+      success: true,
+      isChatMuted: shouldMute,
+      message: shouldMute ? 'Chat muted for regular players' : 'Chat unmuted for everyone'
+    });
+  } catch (err) {
+    console.error('[ChatRoute] Error toggling mute:', err);
+    return res.status(500).json({ error: 'Failed to toggle chat mute' });
   }
 });
 
@@ -66,10 +108,18 @@ router.post('/messages', async (req, res) => {
       });
     }
 
-    // Check if sender is website Admin / Owner
+    // Check if sender is website Admin / Owner / Dev
     const adminPassword = process.env.ADMIN_PASSWORD || 'SerenityAdmin2026!';
     const providedPass = req.headers['x-admin-password'] || req.body?.adminPassword;
     const isAdmin = providedPass === adminPassword || providedPass === 'SerenityAdmin2026!';
+
+    // Verify if chat is currently muted for regular players
+    if (chatStorage.getChatMuted() && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Global chat is currently muted by Staff. Only Developers and Owners can talk.'
+      });
+    }
 
     // Rate limiting key (admins bypass cooldown)
     if (!isAdmin) {
