@@ -11,3 +11,5 @@ services:
         value: SerenityAdmin2026!
       - key: PUBLIC_BASE_URL
         value: https://serenityhub.site
+      - key: CLOUDFLARE_STATS_URL
+        sync: false
