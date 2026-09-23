@@ -74,12 +74,16 @@ document.addEventListener('DOMContentLoaded', () => {
   loadAnnouncements();
   fetchTelemetryStats();
   initWebChat();
+  loadModerationData();
 
   // Periodic telemetry poll every 5 seconds
   setInterval(fetchTelemetryStats, 5000);
 
   // Periodic server status poll every 15 seconds
   setInterval(fetchServerStatus, 15000);
+
+  // Periodic moderation center sync every 10 seconds
+  setInterval(loadModerationData, 10000);
 });
 
 function formatNumber(num) {
@@ -1242,16 +1246,27 @@ function renderWebChatMessages() {
 
     const transHtml = isTranslated ? '<span class="webmsg-trans-tag">(translated)</span>' : '';
 
+    // Moderation triggers
+    const hasModTarget = msg.userId && msg.userId !== '0' && msg.userId !== '1' && !isSystem;
+    const clickModAttr = hasModTarget
+      ? `onclick="openPlayerModModal('${escapeHtml(String(msg.userId))}', '${escapeHtml(rawName)}', '${escapeHtml(msg.username || rawName)}')"`
+      : '';
+    const clickCursorStyle = hasModTarget ? 'cursor: pointer;' : '';
+    const modBtnHtml = hasModTarget
+      ? `<button type="button" class="btn-msg-mod-trigger" ${clickModAttr} title="Moderate player: Warn, Mute, or Ban">🛡️</button>`
+      : '';
+
     html += `
       <div class="webmsg-row" id="webmsg-${msg.id}">
-        <img src="${avatarSrc}" alt="${uName}" class="webmsg-avatar" onerror="this.src='serenity_logo_v2.png'">
+        <img src="${avatarSrc}" alt="${uName}" class="webmsg-avatar ${hasModTarget ? 'webmsg-avatar-mod' : ''}" ${clickModAttr} style="${clickCursorStyle}" title="${hasModTarget ? 'Click to moderate this player' : ''}" onerror="this.src='serenity_logo_v2.png'">
         <div class="webmsg-content">
           <div class="webmsg-header">
             ${badgeHtml}
-            <span class="webmsg-name" style="color: ${nameColor};">${uName}</span>
+            <span class="webmsg-name ${hasModTarget ? 'webmsg-name-mod' : ''}" ${clickModAttr} style="color: ${nameColor}; ${clickCursorStyle}" title="${hasModTarget ? 'Click to moderate this player' : ''}">${uName}</span>
             <span class="webmsg-gametag">${gameTag}</span>
             <span class="webmsg-time">&bull; ${timeStr}</span>
             ${transHtml}
+            ${modBtnHtml}
           </div>
           <div class="webmsg-text">${formatWebChatMentions(displayMessage)}</div>
         </div>
@@ -1264,4 +1279,434 @@ function renderWebChatMessages() {
   // Auto-scroll to bottom
   container.scrollTop = container.scrollHeight;
 }
+
+// =========================================================
+// MODERATION CENTER & PLAYER ACTION MODAL CONTROLLER
+// =========================================================
+
+let currentModTab = 'banned';
+
+function switchModTab(tabName) {
+  currentModTab = tabName;
+  document.querySelectorAll('.mod-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+  });
+  const tabIds = ['modTabBanned', 'modTabMuted', 'modTabWarnings', 'modTabWords'];
+  const activeId = 'modTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+  tabIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === activeId);
+  });
+}
+
+function openPlayerModModal(userId, displayName, username) {
+  if (!getSavedAdminPassword()) {
+    openAuthModal();
+    showToast('Admin password required to moderate players', 'warning');
+    return;
+  }
+  const modal = document.getElementById('playerModModal');
+  if (!modal) return;
+
+  const targetUserIdInput = document.getElementById('modTargetUserIdInput');
+  const targetUsernameInput = document.getElementById('modTargetUsernameInput');
+  const targetName = document.getElementById('modTargetName');
+  const targetUserId = document.getElementById('modTargetUserId');
+
+  if (targetUserIdInput) targetUserIdInput.value = userId;
+  if (targetUsernameInput) targetUsernameInput.value = username || displayName || 'RobloxPlayer';
+  if (targetName) targetName.textContent = displayName ? `${displayName} (@${username || displayName})` : `User ${userId}`;
+  if (targetUserId) targetUserId.textContent = userId;
+
+  selectModAction('warn');
+  modal.classList.add('active');
+}
+
+function closePlayerModModal() {
+  const modal = document.getElementById('playerModModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function selectModAction(action) {
+  document.querySelectorAll('.mod-action-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.getAttribute('data-action') === action);
+  });
+
+  const warnSec = document.getElementById('modActionWarnSection');
+  const muteSec = document.getElementById('modActionMuteSection');
+  const banSec = document.getElementById('modActionBanSection');
+
+  if (warnSec) warnSec.classList.toggle('active', action === 'warn');
+  if (muteSec) muteSec.classList.toggle('active', action === 'mute');
+  if (banSec) banSec.classList.toggle('active', action === 'ban');
+}
+
+async function submitPlayerWarn() {
+  const userId = document.getElementById('modTargetUserIdInput')?.value;
+  const username = document.getElementById('modTargetUsernameInput')?.value;
+  const msgInput = document.getElementById('modWarnReasonInput');
+  const message = msgInput ? msgInput.value.trim() : '';
+
+  if (!userId) {
+    showToast('No user selected for warning.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/moderation/warn', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        userId,
+        username,
+        message,
+        adminName: webChatSenderName || 'Owner'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to issue warning');
+
+    showToast(`⚠️ Warning sent to ${username || userId}! In-game alert queued.`, 'warning');
+    closePlayerModModal();
+    loadModerationData();
+  } catch (err) {
+    showToast('Error issuing warning: ' + err.message, 'error');
+  }
+}
+
+async function submitPlayerMute() {
+  const userId = document.getElementById('modTargetUserIdInput')?.value;
+  const username = document.getElementById('modTargetUsernameInput')?.value;
+  const reasonInput = document.getElementById('modMuteReasonInput');
+  const reason = reasonInput ? reasonInput.value.trim() : 'Muted for chat misconduct';
+
+  if (!userId) {
+    showToast('No user selected for mute.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/moderation/mute', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        userId,
+        username,
+        reason,
+        adminName: webChatSenderName || 'Owner'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to mute player');
+
+    showToast(`🔇 ${username || userId} has been locked out of global chat.`, 'info');
+    closePlayerModModal();
+    loadModerationData();
+  } catch (err) {
+    showToast('Error muting player: ' + err.message, 'error');
+  }
+}
+
+async function submitPlayerBan() {
+  const userId = document.getElementById('modTargetUserIdInput')?.value;
+  const username = document.getElementById('modTargetUsernameInput')?.value;
+  const reasonInput = document.getElementById('modBanReasonInput');
+  const reason = reasonInput ? reasonInput.value.trim() : 'Permanent script & chat ban';
+
+  if (!userId) {
+    showToast('No user selected for ban.', 'error');
+    return;
+  }
+
+  const confirmed = confirm(`Are you sure you want to PERMANENTLY BAN ${username || userId}?\n\nThis will terminate their script access, block injection, and lock them out of Serenity Hub even if they switch accounts or servers.`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/moderation/ban', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        userId,
+        username,
+        reason,
+        adminName: webChatSenderName || 'Owner'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to ban player');
+
+    showToast(`⛔ Player ${username || userId} has been permanently banned from Serenity Hub.`, 'error');
+    closePlayerModModal();
+    loadModerationData();
+  } catch (err) {
+    showToast('Error banning player: ' + err.message, 'error');
+  }
+}
+
+async function loadModerationData() {
+  const pass = getSavedAdminPassword();
+  if (!pass) return; // Only fetch if authorized
+
+  try {
+    const res = await fetch('/api/moderation/data', {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.success) return;
+
+    // Update counts
+    const bannedCount = document.getElementById('modBannedCount');
+    const mutedCount = document.getElementById('modMutedCount');
+    const warningsCount = document.getElementById('modWarningsCount');
+    const wordsCount = document.getElementById('modWordsCount');
+
+    if (bannedCount) bannedCount.textContent = (data.banned || []).length;
+    if (mutedCount) mutedCount.textContent = (data.muted || []).length;
+    if (warningsCount) warningsCount.textContent = (data.warnings || []).length;
+    if (wordsCount) wordsCount.textContent = (data.words || []).length;
+
+    renderBannedTable(data.banned || []);
+    renderMutedTable(data.muted || []);
+    renderWarningsTable(data.warnings || []);
+    renderBlacklistWords(data.words || []);
+  } catch (e) {
+    console.debug('Moderation data fetch failed', e);
+  }
+}
+
+function renderBannedTable(bannedList) {
+  const tbody = document.getElementById('bannedTableBody');
+  if (!tbody) return;
+
+  if (bannedList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No banned players. All players can inject.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (const p of bannedList) {
+    const avatar = `https://www.roblox.com/headshot-thumbnail/image?userId=${p.userId}&width=48&height=48&format=png`;
+    const profileUrl = `https://www.roblox.com/users/${p.userId}/profile`;
+    const dateStr = p.bannedAt ? new Date(p.bannedAt).toLocaleString() : 'N/A';
+    html += `
+      <tr>
+        <td>
+          <div class="player-cell">
+            <img src="${avatar}" class="player-avatar-sm" onerror="this.src='serenity_logo_v2.png'">
+            <div class="player-names">
+              <a href="${profileUrl}" target="_blank" rel="noopener" class="player-link"><strong>${escapeHtml(p.username || 'RobloxPlayer')}</strong></a>
+            </div>
+          </div>
+        </td>
+        <td><code>${escapeHtml(p.userId)}</code></td>
+        <td><span class="reason-tag">${escapeHtml(p.reason || 'Banned')}</span></td>
+        <td class="time-cell">${escapeHtml(dateStr)}</td>
+        <td><span class="admin-badge-sm">${escapeHtml(p.bannedBy || 'Admin')}</span></td>
+        <td>
+          <button type="button" class="btn-table-unban" onclick="unbanPlayer('${escapeHtml(p.userId)}')">🔓 Unban</button>
+        </td>
+      </tr>
+    `;
+  }
+  tbody.innerHTML = html;
+}
+
+function renderMutedTable(mutedList) {
+  const tbody = document.getElementById('mutedTableBody');
+  if (!tbody) return;
+
+  if (mutedList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No players currently muted.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (const p of mutedList) {
+    const avatar = `https://www.roblox.com/headshot-thumbnail/image?userId=${p.userId}&width=48&height=48&format=png`;
+    const profileUrl = `https://www.roblox.com/users/${p.userId}/profile`;
+    const dateStr = p.mutedAt ? new Date(p.mutedAt).toLocaleString() : 'N/A';
+    html += `
+      <tr>
+        <td>
+          <div class="player-cell">
+            <img src="${avatar}" class="player-avatar-sm" onerror="this.src='serenity_logo_v2.png'">
+            <div class="player-names">
+              <a href="${profileUrl}" target="_blank" rel="noopener" class="player-link"><strong>${escapeHtml(p.username || 'RobloxPlayer')}</strong></a>
+            </div>
+          </div>
+        </td>
+        <td><code>${escapeHtml(p.userId)}</code></td>
+        <td><span class="reason-tag">${escapeHtml(p.reason || 'Muted')}</span></td>
+        <td class="time-cell">${escapeHtml(dateStr)}</td>
+        <td><span class="admin-badge-sm">${escapeHtml(p.mutedBy || 'Admin')}</span></td>
+        <td>
+          <button type="button" class="btn-table-unmute" onclick="unmutePlayer('${escapeHtml(p.userId)}')">🔊 Unmute</button>
+        </td>
+      </tr>
+    `;
+  }
+  tbody.innerHTML = html;
+}
+
+function renderWarningsTable(warningsList) {
+  const tbody = document.getElementById('warningsTableBody');
+  if (!tbody) return;
+
+  if (warningsList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No warning logs recorded.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  for (const w of warningsList.slice().reverse()) {
+    const avatar = `https://www.roblox.com/headshot-thumbnail/image?userId=${w.userId}&width=48&height=48&format=png`;
+    const dateStr = w.warnedAt ? new Date(w.warnedAt).toLocaleString() : 'N/A';
+    html += `
+      <tr>
+        <td><code>#${escapeHtml(String(w.id || ''))}</code></td>
+        <td>
+          <div class="player-cell">
+            <img src="${avatar}" class="player-avatar-sm" onerror="this.src='serenity_logo_v2.png'">
+            <strong>${escapeHtml(w.username || 'RobloxPlayer')}</strong>
+          </div>
+        </td>
+        <td><code>${escapeHtml(w.userId)}</code></td>
+        <td><div class="warn-msg-cell">⚠️ ${escapeHtml(w.message || '')}</div></td>
+        <td><span class="admin-badge-sm">${escapeHtml(w.warnedBy || 'Admin')}</span></td>
+        <td class="time-cell">${escapeHtml(dateStr)}</td>
+        <td>
+          <button type="button" class="btn-table-del" onclick="deleteWarningLog('${escapeHtml(String(w.id))}')" title="Delete Log">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }
+  tbody.innerHTML = html;
+}
+
+function renderBlacklistWords(wordsList) {
+  const container = document.getElementById('blacklistedWordsList');
+  if (!container) return;
+
+  if (wordsList.length === 0) {
+    container.innerHTML = '<span class="empty-words-tag">No prohibited words configured. Click above to add words to the auto-delete filter.</span>';
+    return;
+  }
+
+  let html = '';
+  for (const word of wordsList) {
+    html += `
+      <div class="word-chip">
+        <span class="word-text">${escapeHtml(word)}</span>
+        <button type="button" class="word-remove-btn" onclick="removeBlacklistWord('${escapeHtml(word)}')" title="Remove word">✕</button>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+async function unbanPlayer(userId) {
+  try {
+    const res = await fetch('/api/moderation/unban', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to unban player');
+    showToast(`🔓 Unbanned user ID ${userId}`, 'success');
+    loadModerationData();
+  } catch (err) {
+    showToast('Error unbanning: ' + err.message, 'error');
+  }
+}
+
+async function unmutePlayer(userId) {
+  try {
+    const res = await fetch('/api/moderation/unmute', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to unmute player');
+    showToast(`🔊 Unmuted user ID ${userId}`, 'success');
+    loadModerationData();
+  } catch (err) {
+    showToast('Error unmuting: ' + err.message, 'error');
+  }
+}
+
+async function deleteWarningLog(id) {
+  try {
+    const res = await fetch(`/api/moderation/warn-logs/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete warning log');
+    showToast('Warning log deleted', 'info');
+    loadModerationData();
+  } catch (err) {
+    showToast('Error deleting log: ' + err.message, 'error');
+  }
+}
+
+async function clearAllWarningLogs() {
+  if (!confirm('Are you sure you want to clear all warning logs?')) return;
+  try {
+    const res = await fetch('/api/moderation/warn-logs', {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to clear logs');
+    showToast('All warning logs cleared', 'info');
+    loadModerationData();
+  } catch (err) {
+    showToast('Error clearing logs: ' + err.message, 'error');
+  }
+}
+
+async function addBlacklistWord() {
+  const input = document.getElementById('newBlacklistWordInput');
+  const word = input ? input.value.trim() : '';
+  if (!word) {
+    showToast('Please type a word to add to the auto-delete filter.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/moderation/words', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ word })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to add word');
+
+    showToast(`Added "${word}" to prohibited word filter`, 'success');
+    if (input) input.value = '';
+    loadModerationData();
+  } catch (err) {
+    showToast('Error adding prohibited word: ' + err.message, 'error');
+  }
+}
+
+async function removeBlacklistWord(word) {
+  try {
+    const res = await fetch(`/api/moderation/words/${encodeURIComponent(word)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to remove word');
+
+    showToast(`Removed "${word}" from filter`, 'info');
+    loadModerationData();
+  } catch (err) {
+    showToast('Error removing word: ' + err.message, 'error');
+  }
+}
+
 

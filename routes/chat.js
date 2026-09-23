@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const chatStorage = require('../utils/chatStorage');
+const modStorage = require('../utils/moderationStorage');
 const { translateMessageToAll, translateText } = require('../utils/translator');
 
 // Rate limiting: map of userId/IP to timestamp of last message
@@ -131,12 +132,49 @@ router.post('/messages', async (req, res) => {
     const providedPass = req.headers['x-admin-password'] || req.body?.adminPassword;
     const isAdmin = providedPass === adminPassword || providedPass === 'SerenityAdmin2026!';
 
-    // Verify if chat is currently muted for regular players
+    // Verify if player is banned from Serenity Hub
+    if (userId && modStorage.isPlayerBanned(userId)) {
+      return res.status(403).json({
+        success: false,
+        isBanned: true,
+        error: 'You are permanently banned from Serenity Hub.'
+      });
+    }
+
+    // Verify if player is individually muted
+    if (userId && modStorage.isPlayerMuted(userId)) {
+      return res.status(403).json({
+        success: false,
+        isMuted: true,
+        error: 'You are currently muted from Global Chat by Staff.'
+      });
+    }
+
+    // Verify if chat is server-wide muted for regular players
     if (chatStorage.getChatMuted() && !isAdmin) {
       return res.status(403).json({
         success: false,
         error: 'Global chat is currently muted by Staff. Only Developers and Owners can talk.'
       });
+    }
+
+    // Auto-Delete Word Filter Check (Admins bypass)
+    if (!isAdmin) {
+      const filterResult = modStorage.containsBlacklistedWord(cleanMsg);
+      if (filterResult.matched) {
+        if (userId) {
+          modStorage.warnPlayer({
+            userId: String(userId),
+            username: username || "RobloxPlayer",
+            message: `Warning: Prohibited word detected ("${filterResult.word}"). Please follow community guidelines.`,
+            warnedBy: "Auto-Moderator"
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          error: 'Message blocked: Contains prohibited language.'
+        });
+      }
     }
 
     // Rate limiting key (admins bypass cooldown)

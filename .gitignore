@@ -4,3 +4,4 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 data/chat.json
+data/moderation.json

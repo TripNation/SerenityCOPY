@@ -525,7 +525,110 @@
         </div>
       </section>
 
+      <!-- Moderation Center Panel -->
+      <section class="glass-panel moderation-panel">
+        <div class="panel-header-modern">
+          <div class="panel-title-group">
+            <div class="panel-icon-badge icon-glow-rose">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <div>
+              <h2>Serenity Moderation Center</h2>
+              <p class="panel-sub">Live Anti-Injection Bans, Chat Mutes, Warning Logs &amp; Word Blacklist</p>
+            </div>
+          </div>
+          <div class="mod-nav-pills">
+            <button type="button" class="mod-pill active" data-tab="banned" onclick="switchModTab('banned')">⛔ Banned (<span id="modBannedCount">0</span>)</button>
+            <button type="button" class="mod-pill" data-tab="muted" onclick="switchModTab('muted')">🔇 Muted (<span id="modMutedCount">0</span>)</button>
+            <button type="button" class="mod-pill" data-tab="warnings" onclick="switchModTab('warnings')">⚠️ Warnings (<span id="modWarningsCount">0</span>)</button>
+            <button type="button" class="mod-pill" data-tab="words" onclick="switchModTab('words')">🛑 Word Filter (<span id="modWordsCount">0</span>)</button>
+          </div>
+        </div>
 
+        <!-- Tab 1: Banned Players -->
+        <div id="modTabBanned" class="mod-tab-content active">
+          <div class="mod-table-wrap">
+            <table class="mod-data-table">
+              <thead>
+                <tr>
+                  <th>Roblox Player</th>
+                  <th>User ID</th>
+                  <th>Reason</th>
+                  <th>Banned At</th>
+                  <th>Admin</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="bannedTableBody">
+                <tr><td colspan="6" class="empty-state">No banned players. All players can inject.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 2: Muted Players -->
+        <div id="modTabMuted" class="mod-tab-content">
+          <div class="mod-table-wrap">
+            <table class="mod-data-table">
+              <thead>
+                <tr>
+                  <th>Roblox Player</th>
+                  <th>User ID</th>
+                  <th>Reason</th>
+                  <th>Muted At</th>
+                  <th>Admin</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="mutedTableBody">
+                <tr><td colspan="6" class="empty-state">No players currently muted.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 3: Warning Logs -->
+        <div id="modTabWarnings" class="mod-tab-content">
+          <div class="mod-sub-toolbar">
+            <span class="sub-toolbar-title">Active Warning Logs</span>
+            <button type="button" class="btn-clear-logs" onclick="clearAllWarningLogs()">Clear All Logs</button>
+          </div>
+          <div class="mod-table-wrap">
+            <table class="mod-data-table">
+              <thead>
+                <tr>
+                  <th>#ID</th>
+                  <th>Roblox Player</th>
+                  <th>User ID</th>
+                  <th>Warning Message</th>
+                  <th>Issued By</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="warningsTableBody">
+                <tr><td colspan="7" class="empty-state">No warning logs recorded.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 4: Word Filter & Auto-Delete -->
+        <div id="modTabWords" class="mod-tab-content">
+          <div class="word-filter-controls">
+            <div class="add-word-wrap">
+              <input type="text" id="newBlacklistWordInput" placeholder="Add prohibited word (e.g. slur, profanity)..." class="form-input-modern" onkeydown="if(event.key==='Enter') addBlacklistWord()">
+              <button type="button" class="btn-primary-gradient" onclick="addBlacklistWord()">+ Add Prohibited Word</button>
+            </div>
+            <p class="panel-sub" style="margin-top: 8px;">Messages containing any of these words are automatically deleted, rejected from chat, and an auto-warning is issued to the sender.</p>
+          </div>
+          <div class="words-chips-container" id="blacklistedWordsList">
+            <span class="loading-tag">Loading word filter...</span>
+          </div>
+        </div>
+      </section>
 
       <!-- Clean Dashboard Footer -->
       <footer class="hub-footer">
@@ -543,6 +646,65 @@
       </footer>
 
     </div> <!-- /#adminDashboardView -->
+  </div>
+
+  <!-- Player Moderation Action Modal (Warn, Mute, Ban) -->
+  <div id="playerModModal" class="modal-backdrop">
+    <div class="modal-card-glass mod-action-card">
+      <div class="modal-header">
+        <div class="modal-icon-badge icon-glow-rose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <div class="mod-target-info">
+          <h3 id="modTargetName">Roblox Player</h3>
+          <p class="panel-sub">Roblox User ID: <code id="modTargetUserId">819458846</code></p>
+        </div>
+        <button type="button" class="modal-close-x" onclick="closePlayerModModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="modTargetUserIdInput" value="">
+        <input type="hidden" id="modTargetUsernameInput" value="">
+
+        <!-- Action Selection Pills -->
+        <div class="mod-action-tabs">
+          <button type="button" class="mod-action-tab active" data-action="warn" onclick="selectModAction('warn')">⚠️ Warn</button>
+          <button type="button" class="mod-action-tab" data-action="mute" onclick="selectModAction('mute')">🔇 Mute</button>
+          <button type="button" class="mod-action-tab" data-action="ban" onclick="selectModAction('ban')">⛔ Permanent Ban</button>
+        </div>
+
+        <!-- Section 1: Warn Form -->
+        <div id="modActionWarnSection" class="mod-action-panel active">
+          <label class="form-label-modern">Warning Notice (Displays blurred in-game alert for 5 seconds):</label>
+          <textarea id="modWarnReasonInput" class="form-textarea-modern" rows="2" placeholder="e.g. Please do not use any racial slurs or offensive language.">Please do not use any racial slurs or offensive language.</textarea>
+          <p class="mod-action-hint">The player's Roblox screen will blur and flash a prominent yellow <b>WARNED</b> notification with this message.</p>
+          <button type="button" class="btn-warn-action" onclick="submitPlayerWarn()">⚠️ Issue In-Game Warning</button>
+        </div>
+
+        <!-- Section 2: Mute Form -->
+        <div id="modActionMuteSection" class="mod-action-panel">
+          <label class="form-label-modern">Reason for Chat Lockout:</label>
+          <input type="text" id="modMuteReasonInput" class="form-input-modern" placeholder="e.g. Chat misconduct / toxicity" value="Chat misconduct / toxicity">
+          <p class="mod-action-hint">This locks the player from typing in Global Chat from both the in-game script and website.</p>
+          <button type="button" class="btn-mute-action" onclick="submitPlayerMute()">🔇 Lockout From Global Chat</button>
+        </div>
+
+        <!-- Section 3: Ban Form -->
+        <div id="modActionBanSection" class="mod-action-panel">
+          <div class="ban-danger-alert">
+            <strong>⚠️ CRITICAL: SCRIPT ACCESS TERMINATION</strong>
+            <span>Permanently blocks this Roblox User ID from running, injecting, or viewing the Serenity script. Even if they log out or switch servers, they cannot inject until unbanned.</span>
+          </div>
+          <label class="form-label-modern" style="margin-top:12px;">Ban Reason (Logged to Moderation Center):</label>
+          <input type="text" id="modBanReasonInput" class="form-input-modern" placeholder="e.g. Severe violation / Exploiting" value="Severe violation / Exploiting">
+          <button type="button" class="btn-ban-action" onclick="submitPlayerBan()">⛔ Permanently Ban from Script</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Admin Password Authorization Modal -->
