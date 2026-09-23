@@ -53,17 +53,23 @@ function persistMessages() {
 }
 
 /**
- * Returns messages optionally after a specific message ID
+ * Returns messages optionally after a specific message ID and filtered by room
  * @param {number|null} afterId
  * @param {number} limit
+ * @param {string|null} room
  */
-function getMessages(afterId = null, limit = 50) {
+function getMessages(afterId = null, limit = 50, room = null) {
   const msgs = loadMessages();
   let filtered = msgs;
 
+  if (room && room !== 'all') {
+    const rLower = String(room).toLowerCase();
+    filtered = filtered.filter(m => !m.room || m.room.toLowerCase() === rLower);
+  }
+
   if (afterId !== null && !isNaN(afterId)) {
     const num = Number(afterId);
-    filtered = msgs.filter(m => m.id > num);
+    filtered = filtered.filter(m => m.id > num);
   }
 
   return filtered.slice(-Math.min(limit, 100));
@@ -72,7 +78,7 @@ function getMessages(afterId = null, limit = 50) {
 /**
  * Adds a new chat message
  */
-function addMessage({ userId, username, displayName, message, system = false }) {
+function addMessage({ userId, username, displayName, message, gameName = "", room = "general", system = false }) {
   const msgs = loadMessages();
   const maxId = msgs.reduce((max, m) => (m.id > max ? m.id : max), 0);
   const nextId = maxId + 1;
@@ -85,6 +91,8 @@ function addMessage({ userId, username, displayName, message, system = false }) 
     userId: String(userId || "0"),
     username: String(username || "Anonymous").slice(0, 25),
     displayName: String(displayName || username || "Anonymous").slice(0, 30),
+    gameName: String(gameName || "Serenity Hub").slice(0, 40),
+    room: String(room || "general").toLowerCase().slice(0, 25),
     message: String(message || "").trim().slice(0, 200),
     time: timeStr,
     createdAt: now.toISOString(),

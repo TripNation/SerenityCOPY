@@ -25,13 +25,15 @@ router.get('/messages', (req, res) => {
   try {
     const afterId = req.query.after !== undefined ? Number(req.query.after) : null;
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    const room = req.query.room || null;
 
-    const messages = chatStorage.getMessages(afterId, limit);
+    const messages = chatStorage.getMessages(afterId, limit, room);
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     return res.status(200).json({
       success: true,
       count: messages.length,
+      room: room || 'all',
       messages
     });
   } catch (err) {
@@ -46,7 +48,7 @@ router.get('/messages', (req, res) => {
  */
 router.post('/messages', (req, res) => {
   try {
-    const { userId, username, displayName, message } = req.body || {};
+    const { userId, username, displayName, message, gameName, room } = req.body || {};
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -82,6 +84,8 @@ router.post('/messages', (req, res) => {
       userId: userId ? String(userId) : '0',
       username: username ? String(username) : 'RobloxPlayer',
       displayName: displayName ? String(displayName) : (username || 'RobloxPlayer'),
+      gameName: gameName || 'Serenity Hub',
+      room: room || 'general',
       message: cleanMsg
     });
 
