@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchServerStatus();
   loadAnnouncements();
   fetchTelemetryStats();
+  initWebChat();
 
   // Periodic telemetry poll every 5 seconds
   setInterval(fetchTelemetryStats, 5000);
@@ -97,6 +98,9 @@ async function fetchTelemetryStats(manual = false) {
     if (statExecutionsToday) statExecutionsToday.textContent = formatNumber(data.executionsToday ?? 0);
     if (statThisMonth) statThisMonth.textContent = formatNumber(data.thisMonth ?? 0);
     if (statAllTime) statAllTime.textContent = formatNumber(data.allTime ?? 0);
+
+    const webChatOnline = document.getElementById('webChatOnlineCount');
+    if (webChatOnline) webChatOnline.textContent = `${formatNumber(activeCount)} online`;
 
     if (telemetryUpdatedText) {
       const now = new Date();
@@ -901,3 +905,239 @@ function capitalize(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+// ==============================================================================
+// WEB GLOBAL CHAT CONTROLLER (SENA / DISCORD DARK STYLE)
+// ==============================================================================
+
+let currentWebChatRoom = 'general';
+let webChatMessagesList = [];
+let webChatLastMessageId = 0;
+let webChatSearchQuery = '';
+
+const WebChatRoomLangMap = {
+  general: 'en',
+  indonesian: 'id',
+  philippines: 'tl',
+  vietnam: 'vi',
+  brazilian: 'pt'
+};
+
+function initWebChat() {
+  fetchWebChatMessages();
+  setInterval(fetchWebChatMessages, 2500);
+}
+
+async function fetchWebChatMessages() {
+  try {
+    const res = await fetch(`/api/chat/messages?after=${webChatLastMessageId}&limit=50&_t=${Date.now()}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+      let hasNew = false;
+      for (const msg of data.messages) {
+        if (!webChatMessagesList.some(m => m.id === msg.id)) {
+          webChatMessagesList.push(msg);
+          if (msg.id > webChatLastMessageId) {
+            webChatLastMessageId = msg.id;
+          }
+          hasNew = true;
+        }
+      }
+
+      if (hasNew) {
+        renderWebChatMessages();
+      }
+    }
+  } catch (err) {
+    console.warn('WebChat poll error:', err.message);
+  }
+}
+
+function selectWebChatRoom(roomId) {
+  currentWebChatRoom = roomId;
+
+  // Update room pill active states
+  const pills = document.querySelectorAll('.rooms-scroll-list .room-pill');
+  pills.forEach(pill => {
+    if (pill.getAttribute('data-room') === roomId) {
+      pill.classList.add('active');
+    } else {
+      pill.classList.remove('active');
+    }
+  });
+
+  renderWebChatMessages();
+}
+
+function scrollWebChatRooms(direction) {
+  const container = document.getElementById('webChatRoomsList');
+  if (container) {
+    container.scrollBy({ left: direction * 120, behavior: 'smooth' });
+  }
+}
+
+function handleWebChatSearch() {
+  const input = document.getElementById('webChatSearch');
+  webChatSearchQuery = input ? input.value.trim().toLowerCase() : '';
+  renderWebChatMessages();
+}
+
+function insertWebChatMention() {
+  const input = document.getElementById('webChatInput');
+  if (input) {
+    input.value += '@';
+    input.focus();
+  }
+}
+
+async function sendWebChatMessage() {
+  const input = document.getElementById('webChatInput');
+  if (!input) return;
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  const adminPass = getSavedAdminPassword() || 'SerenityAdmin2026!';
+
+  const payload = {
+    userId: '1',
+    username: 'Owner',
+    displayName: 'Chris',
+    gameName: 'Web Dashboard',
+    room: currentWebChatRoom,
+    message: text,
+    role: 'Owner',
+    adminPassword: adminPass
+  };
+
+  input.value = '';
+
+  try {
+    const res = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': adminPass
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      fetchWebChatMessages();
+    } else {
+      const err = await res.json();
+      showToast(err.error || 'Failed to deliver message', 'error');
+    }
+  } catch (err) {
+    console.error('Error sending web chat message:', err);
+    showToast('Failed to connect to chat server', 'error');
+  }
+}
+
+function formatWebChatMentions(text) {
+  if (!text) return '';
+  const escaped = escapeHtml(text);
+  return escaped.replace(/(@[a-zA-Z0-9_]+)/g, '<span class="mention-tag">$1</span>');
+}
+
+function renderWebChatMessages() {
+  const container = document.getElementById('webChatMessages');
+  if (!container) return;
+
+  const langKey = WebChatRoomLangMap[currentWebChatRoom] || 'en';
+  const q = webChatSearchQuery;
+
+  // Assign aesthetic pastel colors
+  const nameColors = [
+    '#73ebaf', // mint green
+    '#ff9bc3', // soft pink
+    '#91d7ff', // light cyan
+    '#ffd77d', // soft amber
+    '#c3a5ff'  // soft violet
+  ];
+
+  const filtered = webChatMessagesList.filter(msg => {
+    let displayTxt = msg.message || '';
+    if (msg.translations && msg.translations[langKey]) {
+      displayTxt = msg.translations[langKey];
+    }
+
+    if (!q) return true;
+    const txtLower = displayTxt.toLowerCase();
+    const userLower = (msg.displayName || msg.username || '').toLowerCase();
+    const gameLower = (msg.gameName || '').toLowerCase();
+    return txtLower.includes(q) || userLower.includes(q) || gameLower.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="webchat-empty-state">No messages in this channel yet. Say hi!</div>';
+    return;
+  }
+
+  let html = '';
+  for (const msg of filtered) {
+    const isOwner = msg.isAdmin || msg.role === 'Owner';
+    const isAdmin = msg.role === 'Admin';
+    const isSystem = msg.system === true;
+
+    // Avatar URL: Roblox Headshot or Serenity Logo
+    let avatarSrc = 'serenity_logo_v2.png';
+    if (!isSystem && !isOwner && msg.userId && msg.userId !== '0' && msg.userId !== '1') {
+      avatarSrc = `https://www.roblox.com/headshot-thumbnail/image?userId=${msg.userId}&width=48&height=48&format=png`;
+    }
+
+    const uName = escapeHtml(msg.displayName || msg.username || 'Anonymous');
+    const gameTag = escapeHtml(msg.gameName || 'Roblox Player');
+    const timeStr = escapeHtml(msg.time || '');
+
+    // Dynamic translation
+    let displayMessage = msg.message || '';
+    let isTranslated = false;
+
+    if (msg.translations && msg.translations[langKey]) {
+      const trans = msg.translations[langKey];
+      if (trans && trans !== msg.message) {
+        displayMessage = trans;
+        isTranslated = true;
+      }
+    }
+
+    const colorIdx = Math.abs(msg.id) % nameColors.length;
+    const nameColor = isOwner ? '#ffd700' : nameColors[colorIdx];
+
+    let badgeHtml = '';
+    if (isOwner) {
+      badgeHtml = '<span class="webmsg-badge-owner">OWNER</span>';
+    } else if (isAdmin) {
+      badgeHtml = '<span class="webmsg-badge-admin">ADMIN</span>';
+    } else if (isSystem) {
+      badgeHtml = '<span class="webmsg-badge-system">SYSTEM</span>';
+    }
+
+    const transHtml = isTranslated ? '<span class="webmsg-trans-tag">(translated)</span>' : '';
+
+    html += `
+      <div class="webmsg-row" id="webmsg-${msg.id}">
+        <img src="${avatarSrc}" alt="${uName}" class="webmsg-avatar" onerror="this.src='serenity_logo_v2.png'">
+        <div class="webmsg-content">
+          <div class="webmsg-header">
+            ${badgeHtml}
+            <span class="webmsg-name" style="color: ${nameColor};">${uName}</span>
+            <span class="webmsg-gametag">${gameTag}</span>
+            <span class="webmsg-time">&bull; ${timeStr}</span>
+            ${transHtml}
+          </div>
+          <div class="webmsg-text">${formatWebChatMentions(displayMessage)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+
+  // Auto-scroll to bottom
+  container.scrollTop = container.scrollHeight;
+}
+

@@ -78,13 +78,15 @@ function getMessages(afterId = null, limit = 50, room = null) {
 /**
  * Adds a new chat message
  */
-function addMessage({ userId, username, displayName, message, gameName = "", room = "general", system = false }) {
+function addMessage({ userId, username, displayName, message, gameName = "", room = "general", translations = null, isAdmin = false, role = null, system = false }) {
   const msgs = loadMessages();
   const maxId = msgs.reduce((max, m) => (m.id > max ? m.id : max), 0);
   const nextId = maxId + 1;
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  const cleanMsg = String(message || "").trim().slice(0, 200);
 
   const newEntry = {
     id: nextId,
@@ -93,7 +95,17 @@ function addMessage({ userId, username, displayName, message, gameName = "", roo
     displayName: String(displayName || username || "Anonymous").slice(0, 30),
     gameName: String(gameName || "Serenity Hub").slice(0, 40),
     room: String(room || "general").toLowerCase().slice(0, 25),
-    message: String(message || "").trim().slice(0, 200),
+    message: cleanMsg,
+    translations: translations || {
+      original: cleanMsg,
+      en: cleanMsg,
+      id: cleanMsg,
+      tl: cleanMsg,
+      vi: cleanMsg,
+      pt: cleanMsg
+    },
+    isAdmin: !!isAdmin,
+    role: role || (isAdmin ? "Owner" : null),
     time: timeStr,
     createdAt: now.toISOString(),
     system: !!system

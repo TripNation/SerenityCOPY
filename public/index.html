@@ -444,6 +444,72 @@
         </section>
       </div>
 
+      <!-- Live Global Chat Console (Exact Discord / Sena Theme) -->
+      <section class="global-chat-panel glass-panel">
+        <!-- Top Header Bar -->
+        <div class="webchat-header">
+          <div class="webchat-title-group">
+            <h2 class="webchat-title">Global Chat</h2>
+            <p class="webchat-subtitle">Talk with every Serenity user across servers (Live Translation Enabled)</p>
+          </div>
+          <div class="webchat-header-controls">
+            <div class="webchat-search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="webChatSearch" placeholder="Search..." oninput="handleWebChatSearch()" class="webchat-search-input">
+            </div>
+            <div class="webchat-sender-badge">
+              <span class="owner-pill"><span class="crown-icon">👑</span> OWNER CONSOLE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Header: Live Network & Online Count -->
+        <div class="webchat-subbar">
+          <div class="subbar-left">
+            <span class="live-net-label">Live Network</span>
+            <div class="rooms-indicator-pill">Rooms</div>
+            <div class="hidden-pill"><span class="dot-red-pulse"></span> Hidden</div>
+          </div>
+          <div class="subbar-right">
+            <span class="online-indicator-dot"></span>
+            <span id="webChatOnlineCount" class="online-text">Connecting...</span>
+          </div>
+        </div>
+
+        <!-- Room Selector Pills -->
+        <div class="webchat-rooms-bar">
+          <button type="button" class="arrow-btn" onclick="scrollWebChatRooms(-1)">‹</button>
+          <div class="rooms-scroll-list" id="webChatRoomsList">
+            <button type="button" class="room-pill active" data-room="general" onclick="selectWebChatRoom('general')">General</button>
+            <button type="button" class="room-pill" data-room="indonesian" onclick="selectWebChatRoom('indonesian')">Indonesian <span class="dot-red"></span></button>
+            <button type="button" class="room-pill" data-room="philippines" onclick="selectWebChatRoom('philippines')">Philippines <span class="dot-red"></span></button>
+            <button type="button" class="room-pill" data-room="vietnam" onclick="selectWebChatRoom('vietnam')">Vietnam <span class="dot-red"></span></button>
+            <button type="button" class="room-pill" data-room="brazilian" onclick="selectWebChatRoom('brazilian')">Brazilian <span class="dot-red"></span></button>
+          </div>
+          <button type="button" class="arrow-btn" onclick="scrollWebChatRooms(1)">›</button>
+        </div>
+
+        <!-- Chat Messages Feed -->
+        <div class="webchat-messages-container" id="webChatMessages">
+          <div class="webchat-empty-state">Loading global messages...</div>
+        </div>
+
+        <!-- Bottom Input Bar -->
+        <div class="webchat-input-bar">
+          <div class="input-name-tag">Owner</div>
+          <input 
+            type="text" 
+            id="webChatInput" 
+            placeholder="Type a message as Owner... (Enter to send)" 
+            maxlength="200"
+            onkeydown="if(event.key==='Enter') sendWebChatMessage()"
+            class="webchat-text-input"
+          >
+          <button type="button" class="btn-mention-helper" onclick="insertWebChatMention()" title="Mention player">@</button>
+          <button type="button" class="btn-webchat-send" onclick="sendWebChatMessage()">Send</button>
+        </div>
+      </section>
+
 
 
       <!-- Clean Dashboard Footer -->
