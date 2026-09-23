@@ -380,7 +380,10 @@ function checkAuthStatus() {
     if (logoutBtn) logoutBtn.style.display = 'none';
     
     const input = document.getElementById('gatewayPasswordInput');
-    if (input) setTimeout(() => input.focus(), 150);
+    // On mobile devices, do NOT auto-trigger focus to avoid virtual keyboard freezing
+    if (input && window.innerWidth > 768) {
+      setTimeout(() => input.focus(), 150);
+    }
   }
 }
 
@@ -1042,6 +1045,9 @@ async function fetchWebChatMessages() {
       }
 
       if (hasNew) {
+        if (webChatMessagesList.length > 100) {
+          webChatMessagesList = webChatMessagesList.slice(-100);
+        }
         renderWebChatMessages();
       }
     }
@@ -1177,7 +1183,8 @@ function renderWebChatMessages() {
   }
 
   let html = '';
-  for (const msg of filtered) {
+  const toRender = filtered.slice(-100);
+  for (const msg of toRender) {
     const isOwner = msg.role === 'Owner' || (msg.isAdmin && !msg.role);
     const isAdmin = msg.role === 'Admin';
     const isDev = msg.role === 'Dev';

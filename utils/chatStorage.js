@@ -46,19 +46,22 @@ function loadMessages() {
 function persistMessages() {
   ensureDataFile();
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(inMemoryMessages.slice(-MAX_MESSAGES), null, 2), 'utf-8');
+    if (inMemoryMessages && inMemoryMessages.length > MAX_MESSAGES) {
+      inMemoryMessages = inMemoryMessages.slice(-MAX_MESSAGES);
+    }
+    fs.writeFileSync(DATA_FILE, JSON.stringify(inMemoryMessages || [], null, 2), 'utf-8');
   } catch (err) {
     console.error('[ChatStorage Error] Failed to write chat:', err.message);
   }
 }
 
 /**
- * Returns messages optionally after a specific message ID and filtered by room
+ * Returns messages optionally after a specific message ID and filtered by room (capped at 100)
  * @param {number|null} afterId
  * @param {number} limit
  * @param {string|null} room
  */
-function getMessages(afterId = null, limit = 50, room = null) {
+function getMessages(afterId = null, limit = 100, room = null) {
   const msgs = loadMessages();
   let filtered = msgs;
 
@@ -72,7 +75,8 @@ function getMessages(afterId = null, limit = 50, room = null) {
     filtered = filtered.filter(m => m.id > num);
   }
 
-  return filtered.slice(-Math.min(limit, 100));
+  const cappedLimit = Math.min(limit || 100, MAX_MESSAGES);
+  return filtered.slice(-cappedLimit);
 }
 
 /**
