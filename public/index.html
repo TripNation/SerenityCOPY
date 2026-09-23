@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serenity Hub — Live Announcement & Telemetry Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="serenity_logo.png">
+</head>
+<body>
+  <!-- Ambient Space Background Glows -->
+  <div class="space-stars"></div>
+  <div class="ambient-glow glow-blue"></div>
+  <div class="ambient-glow glow-cyan"></div>
+  <div class="ambient-glow glow-violet"></div>
+
+  <div class="app-container">
+    <!-- =========================================================
+         LANDING / GATEWAY LOGIN VIEW
+         ========================================================= -->
+    <div id="loginGatewayView" class="login-gateway-view">
+      <div class="login-card-glass">
+        <div class="login-hero">
+          <div class="login-logo-wrap">
+            <div class="login-logo-glow"></div>
+            <div class="login-logo-badge">
+              <img src="serenity_logo.png" alt="Serenity Hub Logo" class="login-sh-img">
+            </div>
+          </div>
+
+          <div class="brand-chip"><span>OFFICIAL ADMIN CONSOLE</span></div>
+          <h1 class="login-title-shimmer">Serenity Hub</h1>
+          <p class="login-tagline">LIVE IN-GAME BROADCASTING &amp; REAL-TIME TELEMETRY</p>
+        </div>
+
+        <form id="gatewayLoginForm" class="login-form-card" onsubmit="handleGatewayLogin(event)">
+          <div class="login-input-wrap">
+            <svg class="login-key-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <input 
+              type="password" 
+              id="gatewayPasswordInput" 
+              class="login-password-input" 
+              placeholder="Enter Administrator Password..." 
+              autocomplete="current-password"
+              required
+            />
+          </div>
+
+          <div id="gatewayErrorMsg" class="login-error-msg" style="display: none;"></div>
+
+          <button type="submit" id="gatewaySubmitBtn" class="btn-login-gradient">
+            <span>ENTER ADMIN CONSOLE</span>
+            <svg class="btn-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </form>
+
+        <div class="login-card-footer">
+          <span>Protected Session &bull; Serenity Hub Protocol v3.2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         MAIN ADMIN DASHBOARD VIEW
+         ========================================================= -->
+    <div id="adminDashboardView" class="admin-dashboard-view" style="display: none;">
+      
+      <!-- Top Navigation & Branding Bar -->
+      <header class="hub-header">
+        <div class="header-branding">
+          <div class="hub-logo-badge">
+            <img src="serenity_logo.png" alt="Serenity Hub" class="hub-logo-img">
+          </div>
+          <div class="header-titles">
+            <div class="title-row">
+              <h1 class="hub-title">Serenity Hub</h1>
+              <span class="hub-version-badge">v3.2</span>
+            </div>
+            <p class="hub-subtitle">COMMAND &amp; LIVE BROADCAST CONSOLE</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <!-- Server Status Pill -->
+          <div class="status-indicator-pill" id="apiStatusPill">
+            <span class="pulse-beacon"></span>
+            <span id="apiStatusText">Online</span>
+          </div>
+
+          <!-- Quick Copy API URL Badge -->
+          <div class="api-endpoint-badge" onclick="copyApiUrl()" title="Click to copy API endpoint">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span id="apiUrlDisplay">https://serenityhub.site</span>
+            <button type="button" class="btn-copy-chip" id="copyUrlBtn">COPY</button>
+          </div>
+
+          <!-- Auth Status & Logout -->
+          <div id="authStatusBadge" class="auth-badge auth-unlocked" onclick="openAuthModal()">
+            <span class="auth-dot"></span>
+            <span id="authStatusText">Admin Authorized</span>
+          </div>
+          <button id="logoutBtn" class="btn-logout" onclick="logoutAdmin()" title="Clear saved admin session">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Logout</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Real-Time Telemetry Deck -->
+      <section class="telemetry-deck">
+        <div class="telemetry-deck-header">
+          <div class="deck-title-group">
+            <div class="deck-indicator-dot"></div>
+            <div>
+              <h2 class="deck-title">Live In-Game Fleet Telemetry</h2>
+              <p class="deck-subtitle">Active players, session injections, and real-time execution statistics</p>
+            </div>
+          </div>
+          <div class="deck-actions">
+            <span id="telemetryUpdatedText" class="telemetry-timestamp">Updated: Just now</span>
+            <button type="button" class="btn-refresh-telemetry" onclick="fetchTelemetryStats(true)">
+              <svg class="icon-sm spin-hover" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="telemetry-grid">
+          <!-- Active Now Card -->
+          <div class="metric-card card-active-glow">
+            <div class="metric-card-bg"></div>
+            <div class="metric-icon-wrap icon-cyan">
+              <span class="live-radar-dot"></span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <div class="metric-label">ACTIVE IN-GAME NOW</div>
+              <div class="metric-number text-glow-cyan" id="statActiveNow">0</div>
+            </div>
+            <div class="metric-trend-badge trend-live">LIVE ROLLING</div>
+          </div>
+
+          <!-- Executions Today Card -->
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <div class="metric-label">EXECUTIONS TODAY</div>
+              <div class="metric-number text-glow-blue" id="statExecutionsToday">0</div>
+            </div>
+            <div class="metric-trend-badge">24H CYCLE</div>
+          </div>
+
+          <!-- This Month Card -->
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-indigo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <div class="metric-label">THIS MONTH</div>
+              <div class="metric-number" id="statThisMonth">0</div>
+            </div>
+            <div class="metric-trend-badge">MONTHLY</div>
+          </div>
+
+          <!-- All-Time Executions Card -->
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-violet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="7"></circle>
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <div class="metric-label">ALL-TIME EXECUTIONS</div>
+              <div class="metric-number text-glow-violet" id="statAllTime">0</div>
+            </div>
+            <div class="metric-trend-badge">LIFETIME</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Workspace: Broadcast Form & In-Game Simulator Viewport -->
+      <div class="workspace-layout">
+        
+        <!-- Left: Broadcast Control Panel -->
+        <section class="glass-panel form-panel">
+          <div class="panel-header-modern">
+            <div class="panel-title-group">
+              <div class="panel-icon-badge icon-glow-blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13"></path>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </div>
+              <div>
+                <h2 id="formHeading">Create Announcement</h2>
+                <p class="panel-sub">Broadcast live popups to all active Serenity Hub players</p>
+              </div>
+            </div>
+            <span id="editingIndicator" class="pill-editing" style="display: none;">
+              Editing #<span id="editingIdText"></span>
+            </span>
+          </div>
+
+          <form id="announcementForm" onsubmit="handleFormSubmit(event)">
+            <input type="hidden" id="editAnnouncementId" value="">
+
+            <!-- Announcement Message Input -->
+            <div class="form-group-modern">
+              <div class="label-row">
+                <label for="announcementMessage" class="form-label-modern">
+                  Broadcast Message <span class="required">*</span>
+                </label>
+                <div class="char-count-pill"><span id="charCount">0</span>/300</div>
+              </div>
+              <textarea 
+                id="announcementMessage" 
+                class="form-textarea-modern" 
+                rows="3" 
+                placeholder="e.g. Major Update Released! New scripts and features now live across all games." 
+                required
+                maxlength="300"
+              ></textarea>
+            </div>
+
+            <!-- Type & Duration Grid -->
+            <div class="form-grid-2">
+              <div class="form-group-modern">
+                <label for="announcementType" class="form-label-modern">Announcement Category</label>
+                <div class="select-wrap-modern">
+                  <select id="announcementType" class="form-select-modern">
+                    <option value="announcement">📢 Announcement</option>
+                    <option value="update" selected>⚡ Major Update</option>
+                    <option value="important">⚠️ Important Notice</option>
+                    <option value="warning">🚨 Urgent Warning</option>
+                    <option value="maintenance">🔧 Maintenance Mode</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group-modern">
+                <label for="announcementDuration" class="form-label-modern">Display Duration</label>
+                <div class="select-wrap-modern">
+                  <select id="announcementDuration" class="form-select-modern">
+                    <option value="5">5 Seconds</option>
+                    <option value="10" selected>10 Seconds (Recommended)</option>
+                    <option value="15">15 Seconds</option>
+                    <option value="30">30 Seconds</option>
+                    <option value="persistent">Persistent (Player Dismiss Only)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Game Targeting Group -->
+            <div class="form-group-modern">
+              <label for="gameSelection" class="form-label-modern">Target In-Game Module</label>
+              <div class="select-wrap-modern">
+                <select id="gameSelection" class="form-select-modern" onchange="handleGameSelectChange()">
+                  <option value="all" data-name="all" selected>🌐 All Supported Games (Whole Hub Fleet)</option>
+                  <option value="103883942725157" data-name="+1 Drain Water Per Click">💧 +1 Drain Water Per Click</option>
+                  <option value="74102906764176" data-name="Greedy Growers">🌱 Greedy Growers</option>
+                  <option value="91701030914075" data-name="+1 Monkey Evolution">🐒 +1 Monkey Evolution</option>
+                  <option value="97824450589417" data-name="+1 Superhero Evolution">🦸 +1 Superhero Evolution</option>
+                  <option value="103138601755519" data-name="+1 Dino Evolution">🦖 +1 Dino Evolution</option>
+                  <option value="104809044319701" data-name="+1 Phonk Evolution">🎵 +1 Phonk Evolution</option>
+                  <option value="137233438285284" data-name="Chicken Farm">🐔 Chicken Farm</option>
+                  <option value="90086669327265" data-name="+1 Cut Grass Adventure">🌿 +1 Cut Grass Adventure</option>
+                  <option value="122572082932179" data-name="Sell Ores">⛏️ Sell Ores</option>
+                  <option value="108307565942574" data-name="Heroes RNG">⚔️ Heroes RNG</option>
+                  <option value="98894876188248" data-name="Cheating During Testing [BETA]">📝 Cheating During Testing [BETA]</option>
+                  <option value="107653945083776" data-name="Roll Anime to Fight!">🎲 Roll Anime to Fight!</option>
+                  <option value="122951224417794" data-name="Unscathed RNG">✨ Unscathed RNG</option>
+                  <option value="109530157755211" data-name="Lift A Cube">📦 Lift A Cube</option>
+                  <option value="122245938604556" data-name="+1 Tongue Escape">👅 +1 Tongue Escape</option>
+                  <option value="122216176958450" data-name="Steal A Seed!">🌻 Steal A Seed!</option>
+                  <option value="125927821145949" data-name="Mine a Mountain">⛰️ Mine a Mountain</option>
+                  <option value="76377501906469" data-name="Steal And Hatch Anime Egg!">🥚 Steal And Hatch Anime Egg!</option>
+                  <option value="124216119978534" data-name="Ride A Pet">🐾 Ride A Pet</option>
+                  <option value="86259628805375" data-name="+1 Strength to Grow your arm!">💪 +1 Strength to Grow your arm!</option>
+                  <option value="113290951185459" data-name="Anime Dice">🎲 Anime Dice</option>
+                  <option value="custom">⚙️ Custom Place ID / Module...</option>
+                </select>
+              </div>
+              <p class="target-hint-text" id="gameTargetHint">Sends this announcement to every player connected to Serenity Hub.</p>
+            </div>
+
+            <div class="form-group-modern" id="customGameGroup" style="display: none;">
+              <label for="customGameInput" class="form-label-modern">Custom Module Name</label>
+              <input type="text" id="customGameInput" class="form-input-modern" placeholder="e.g. +1 Strength, Cut Grass">
+            </div>
+
+            <!-- Form Action Buttons -->
+            <div class="form-actions-modern">
+              <button type="submit" id="submitBtn" class="btn-primary-gradient">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                <span id="submitBtnText">BROADCAST ANNOUNCEMENT</span>
+              </button>
+
+              <div class="btn-row-secondary">
+                <button type="button" class="btn-secondary-glass" onclick="scrollToPreview()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  <span>PREVIEW</span>
+                </button>
+
+                <button type="button" class="btn-ghost-glass" onclick="resetForm()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                  </svg>
+                  <span>CLEAR</span>
+                </button>
+              </div>
+
+              <button type="button" class="btn-test-action" onclick="sendTestAnnouncement()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <span>⚡ SEND INSTANT TEST BROADCAST</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Right: In-Game Simulator Viewport -->
+        <section class="glass-panel preview-panel" id="previewSection">
+          <div class="panel-header-modern">
+            <div class="panel-title-group">
+              <div class="panel-icon-badge icon-glow-cyan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+              </div>
+              <div>
+                <h2>In-Game Simulator</h2>
+                <p class="panel-sub">Real-time Roblox client viewport &amp; notification popup</p>
+              </div>
+            </div>
+            <span class="live-realtime-badge">
+              <span class="beacon-dot"></span> Realtime
+            </span>
+          </div>
+
+          <div class="simulator-viewport-container">
+            <!-- Simulated Roblox Game Frame -->
+            <div class="roblox-window-frame">
+              <!-- Window Chrome -->
+              <div class="roblox-window-bar">
+                <div class="window-dot-group">
+                  <span class="window-dot red"></span>
+                  <span class="window-dot yellow"></span>
+                  <span class="window-dot green"></span>
+                </div>
+                <div class="window-meta">
+                  <span class="roblox-client-title">Roblox Client (64-bit) &bull; Serenity Hub Viewport</span>
+                </div>
+                <div class="window-stats">
+                  <span class="fps-tag">60 FPS</span>
+                  <span class="ping-tag">18ms</span>
+                </div>
+              </div>
+
+              <!-- Roblox Viewport Canvas Area -->
+              <div class="roblox-viewport-canvas">
+                <div class="starfield-overlay"></div>
+                <div class="crosshair-center"></div>
+
+                <!-- Simulated Serenity Hub Notification Popup -->
+                <div class="Serenity-popup-card-v2" id="popupCard">
+                  <div class="popup-v2-main">
+                    <!-- Custom Glowing SH Logo Badge -->
+                    <div class="popup-v2-logo-holder">
+                      <img src="serenity_logo.png" alt="Serenity Logo" class="popup-v2-logo-img">
+                    </div>
+
+                    <div class="popup-v2-content">
+                      <div class="popup-v2-header" id="previewTitle">Serenity Update</div>
+                      <div class="popup-v2-message" id="previewMessage">Live announcement system successfully connected!</div>
+                    </div>
+
+                    <button type="button" class="popup-v2-dismiss" onclick="simulateDismiss()" title="Simulate Player Dismiss">✕</button>
+                  </div>
+
+                  <!-- Animated Progress Bar -->
+                  <div class="popup-v2-progress-track">
+                    <div class="popup-v2-progress-fill" id="popupProgressFill"></div>
+                  </div>
+                </div>
+
+                <div class="simulator-watermark">SERENITY HUB IN-GAME RENDERER</div>
+              </div>
+            </div>
+
+            <!-- Simulator Info Strip -->
+            <div class="simulator-info-strip">
+              <div class="info-pill"><span class="info-dot"></span> Matches In-Game Lua Geometry</div>
+              <div class="info-pill">Duration Countdown Active</div>
+              <div class="info-pill">Click ✕ to Test Dismiss</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+
+
+      <!-- Clean Dashboard Footer -->
+      <footer class="hub-footer">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <img src="serenity_logo.png" alt="Serenity" class="footer-logo">
+            <span>Serenity Hub Autonomous Telemetry &bull; Built for Global Player Distribution</span>
+          </div>
+          <div class="footer-links">
+            <a href="https://serenityhub.site" target="_blank" rel="noopener">serenityhub.site</a>
+            <span>&bull;</span>
+            <span class="system-time" id="serverUptimeText">System Active</span>
+          </div>
+        </div>
+      </footer>
+
+    </div> <!-- /#adminDashboardView -->
+  </div>
+
+  <!-- Admin Password Authorization Modal -->
+  <div id="authModal" class="modal-backdrop">
+    <div class="modal-card-glass">
+      <div class="modal-header">
+        <div class="modal-icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <div>
+          <h3>Admin Authorization</h3>
+          <p class="panel-sub">Enter the administrator password to authorize your session</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="form-group-modern">
+          <label for="adminPasswordInput" class="form-label-modern">Admin Password</label>
+          <input 
+            type="password" 
+            id="adminPasswordInput" 
+            class="form-input-modern" 
+            placeholder="Enter ADMIN_PASSWORD" 
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') saveAdminPassword()"
+          >
+          <div id="authErrorMsg" class="auth-error-msg"></div>
+        </div>
+        <div class="auth-hint">
+          <span>Configurable in your <code>.env</code> file (Default: <code>SerenityAdmin2026!</code>)</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost-glass" onclick="closeAuthModal()">Cancel</button>
+        <button type="button" class="btn-primary-gradient" onclick="saveAdminPassword()">Authorize Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden elements needed for app.js references -->
+  <div style="display:none;">
+    <span id="previewTypeBadge"></span>
+    <span id="previewDurationBadge"></span>
+    <span id="previewTargetTag"></span>
+    <span id="serverModeText"></span>
+    <span id="latestIdBadge"></span>
+    <span id="clientModeBadge"></span>
+    <div id="luaSnippetBlock"></div>
+    <table style="display:none;"><tbody id="historyTableBody"></tbody></table>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

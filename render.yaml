@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: serenity-admin
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ADMIN_PASSWORD
+        value: SerenityAdmin2026!
+      - key: PUBLIC_BASE_URL
+        value: https://serenityhub.site

@@ -1,0 +1,27 @@
+{
+  "name": "serenity-hub-admin",
+  "version": "1.0.0",
+  "description": "Live Announcement Admin Dashboard and REST API for Serenity Hub",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "serenity-hub",
+    "admin",
+    "announcements",
+    "api",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
