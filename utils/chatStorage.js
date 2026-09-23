@@ -136,10 +136,37 @@ function setChatMuted(val) {
   return isChatMuted;
 }
 
-function clearMessages() {
-  inMemoryMessages = [];
+function clearMessages(clearedBy = "Owner") {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  inMemoryMessages = [
+    {
+      id: 1,
+      userId: "0",
+      username: "System",
+      displayName: "Serenity System",
+      gameName: "Global Chat",
+      room: "all",
+      message: `🧹 Global chat has been cleared by ${clearedBy}.`,
+      time: timeStr,
+      createdAt: now.toISOString(),
+      system: true
+    }
+  ];
   persistMessages();
   return true;
+}
+
+function deleteMessage(messageId) {
+  const msgs = loadMessages();
+  const idNum = Number(messageId);
+  const initialLen = msgs.length;
+  inMemoryMessages = msgs.filter(m => m.id !== idNum);
+  if (inMemoryMessages.length !== initialLen) {
+    persistMessages();
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -177,11 +204,14 @@ async function repairMissingTranslations() {
 setTimeout(repairMissingTranslations, 2000);
 
 module.exports = {
+  loadMessages,
   getMessages,
   addMessage,
+  deleteMessage,
   clearMessages,
   getChatMuted,
   setChatMuted,
   repairMissingTranslations
 };
+
 

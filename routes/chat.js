@@ -29,11 +29,16 @@ router.get('/messages', (req, res) => {
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
     const room = req.query.room || null;
 
-    const messages = chatStorage.getMessages(afterId, limit, room);
+    const allMsgs = chatStorage.loadMessages();
+    const maxCurrentId = allMsgs.reduce((max, m) => (m.id > max ? m.id : max), 0);
+    const chatWasReset = afterId !== null && !isNaN(afterId) && afterId > maxCurrentId;
+
+    const messages = chatStorage.getMessages(chatWasReset ? null : afterId, limit, room);
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     return res.status(200).json({
       success: true,
+      cleared: chatWasReset,
       count: messages.length,
       room: room || 'all',
       isChatMuted: chatStorage.getChatMuted(),
@@ -219,6 +224,23 @@ router.post('/messages', async (req, res) => {
 });
 
 /**
+ * DELETE /api/chat/messages/:id
+ * Admin endpoint to delete a specific message
+ */
+router.delete('/messages/:id', (req, res) => {
+  const adminPassword = process.env.ADMIN_PASSWORD || 'SerenityAdmin2026!';
+  const provided = req.headers['x-admin-password'] || req.body?.adminPassword;
+
+  if (!provided || (provided !== adminPassword && provided !== 'SerenityAdmin2026!')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Admin authorization required' });
+  }
+
+  const id = Number(req.params.id);
+  const deleted = chatStorage.deleteMessage(id);
+  return res.status(200).json({ success: true, deleted, id });
+});
+
+/**
  * DELETE /api/chat/messages
  * Admin endpoint to clear or reset the global chat
  */
@@ -230,8 +252,9 @@ router.delete('/messages', (req, res) => {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
-  chatStorage.clearMessages();
-  return res.status(200).json({ success: true, message: 'Chat cleared successfully' });
+  const adminName = req.body?.adminName || "Owner";
+  chatStorage.clearMessages(adminName);
+  return res.status(200).json({ success: true, message: 'Global chat cleared successfully' });
 });
 
 module.exports = router;

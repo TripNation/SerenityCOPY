@@ -63,27 +63,42 @@ const telemetryUpdatedText = document.getElementById('telemetryUpdatedText');
 const historyTableBody = document.getElementById('historyTableBody');
 
 // =========================================================
-// INITIALIZATION
+// INITIALIZATION & PERFORMANCE CONTROLLER
 // =========================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  setupEventListeners();
-  checkAuthStatus();
-  updateLivePreview();
+let isDashboardPollingActive = false;
+let telemetryIntervalId = null;
+let serverStatusIntervalId = null;
+let moderationIntervalId = null;
+let webChatIntervalId = null;
+
+function startDashboardPolling() {
+  if (isDashboardPollingActive) return;
+  isDashboardPollingActive = true;
+
   fetchServerStatus();
   loadAnnouncements();
   fetchTelemetryStats();
   initWebChat();
   loadModerationData();
 
-  // Periodic telemetry poll every 5 seconds
-  setInterval(fetchTelemetryStats, 5000);
+  if (!telemetryIntervalId) telemetryIntervalId = setInterval(fetchTelemetryStats, 5000);
+  if (!serverStatusIntervalId) serverStatusIntervalId = setInterval(fetchServerStatus, 15000);
+  if (!moderationIntervalId) moderationIntervalId = setInterval(loadModerationData, 10000);
+}
 
-  // Periodic server status poll every 15 seconds
-  setInterval(fetchServerStatus, 15000);
+function stopDashboardPolling() {
+  isDashboardPollingActive = false;
+  if (telemetryIntervalId) { clearInterval(telemetryIntervalId); telemetryIntervalId = null; }
+  if (serverStatusIntervalId) { clearInterval(serverStatusIntervalId); serverStatusIntervalId = null; }
+  if (moderationIntervalId) { clearInterval(moderationIntervalId); moderationIntervalId = null; }
+  if (webChatIntervalId) { clearInterval(webChatIntervalId); webChatIntervalId = null; }
+}
 
-  // Periodic moderation center sync every 10 seconds
-  setInterval(loadModerationData, 10000);
+document.addEventListener('DOMContentLoaded', () => {
+  setupEventListeners();
+  checkAuthStatus();
+  updateLivePreview();
 });
 
 function formatNumber(num) {
@@ -373,6 +388,8 @@ function checkAuthStatus() {
       authStatusText.textContent = 'Admin Authorized';
     }
     if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+
+    startDashboardPolling();
   } else {
     if (loginGatewayView) loginGatewayView.style.display = 'flex';
     if (adminDashboardView) adminDashboardView.style.display = 'none';
@@ -382,6 +399,8 @@ function checkAuthStatus() {
       authStatusText.textContent = 'Admin Key Required';
     }
     if (logoutBtn) logoutBtn.style.display = 'none';
+
+    stopDashboardPolling();
     
     const input = document.getElementById('gatewayPasswordInput');
     // On mobile devices, do NOT auto-trigger focus to avoid virtual keyboard freezing
@@ -976,7 +995,9 @@ function fetchLiveWebTranslation(msgId, text, langKey) {
 
 function initWebChat() {
   fetchWebChatMessages();
-  setInterval(fetchWebChatMessages, 2500);
+  if (!webChatIntervalId) {
+    webChatIntervalId = setInterval(fetchWebChatMessages, 2500);
+  }
 }
 
 function updateChatMuteUI(isMuted) {
@@ -1034,6 +1055,19 @@ async function fetchWebChatMessages() {
     if (data.isChatMuted !== undefined && isWebChatMuted !== data.isChatMuted) {
       isWebChatMuted = data.isChatMuted;
       updateChatMuteUI(isWebChatMuted);
+    }
+
+    if (data.cleared) {
+      webChatMessagesList = [];
+      webChatLastMessageId = 0;
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        for (const msg of data.messages) {
+          webChatMessagesList.push(msg);
+          if (msg.id > webChatLastMessageId) webChatLastMessageId = msg.id;
+        }
+      }
+      renderWebChatMessages();
+      return;
     }
 
     if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
@@ -1255,6 +1289,10 @@ function renderWebChatMessages() {
     const modBtnHtml = hasModTarget
       ? `<button type="button" class="btn-msg-mod-trigger" ${clickModAttr} title="Moderate player: Warn, Mute, or Ban">🛡️</button>`
       : '';
+    // Delete message trigger
+    const delBtnHtml = (!isSystem)
+      ? `<button type="button" class="btn-msg-del-trigger" onclick="deleteChatMessage('${msg.id}')" title="Delete this message">🗑️</button>`
+      : '';
 
     html += `
       <div class="webmsg-row" id="webmsg-${msg.id}">
@@ -1267,6 +1305,7 @@ function renderWebChatMessages() {
             <span class="webmsg-time">&bull; ${timeStr}</span>
             ${transHtml}
             ${modBtnHtml}
+            ${delBtnHtml}
           </div>
           <div class="webmsg-text">${formatWebChatMentions(displayMessage)}</div>
         </div>
@@ -1278,6 +1317,64 @@ function renderWebChatMessages() {
 
   // Auto-scroll to bottom
   container.scrollTop = container.scrollHeight;
+}
+
+async function deleteChatMessage(id) {
+  if (!getSavedAdminPassword()) {
+    openAuthModal();
+    showToast('Admin password required to delete messages', 'warning');
+    return;
+  }
+
+  if (!confirm(`Delete message #${id}?`)) return;
+
+  try {
+    const res = await fetch(`/api/chat/messages/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to delete message');
+    }
+
+    // Immediately remove from local list and update view
+    webChatMessagesList = webChatMessagesList.filter(m => String(m.id) !== String(id));
+    renderWebChatMessages();
+    showToast(`Message #${id} deleted`, 'info');
+  } catch (err) {
+    showToast('Error deleting message: ' + err.message, 'error');
+  }
+}
+
+async function clearAllChatMessages() {
+  if (!getSavedAdminPassword()) {
+    openAuthModal();
+    showToast('Admin password required to clear chat', 'warning');
+    return;
+  }
+
+  const confirmed = confirm('Are you sure you want to CLEAR ALL messages in Global Chat?\n\nThis will purge all active messages across the website and Roblox in-game chat.');
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/chat/messages', {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ adminName: webChatSenderName || 'Owner' })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to clear chat');
+    }
+
+    webChatMessagesList = [];
+    webChatLastMessageId = 0;
+    await fetchWebChatMessages();
+    showToast('🧹 Global Chat has been cleared', 'success');
+  } catch (err) {
+    showToast('Error clearing chat: ' + err.message, 'error');
+  }
 }
 
 // =========================================================

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>Serenity Hub — Live Announcement & Telemetry Command</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -469,6 +469,9 @@
             <span class="live-net-label">Live Network</span>
             <button type="button" id="btnToggleChatMute" class="btn-chat-mute" onclick="toggleGlobalChatMute()">
               <span id="chatMuteIcon">🔒</span> <span id="chatMuteText">Mute Chat (Staff Only)</span>
+            </button>
+            <button type="button" id="btnClearChat" class="btn-clear-chat" onclick="clearAllChatMessages()" title="Clear all messages in Global Chat">
+              <span>🧹 Clear Chat</span>
             </button>
           </div>
           <div class="subbar-right">

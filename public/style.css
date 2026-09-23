@@ -2267,18 +2267,75 @@ body {
    RESPONSIVE DESIGN & MOBILE OPTIMIZATIONS (Smartphones & Tablets)
    ============================================================================== */
 @media (max-width: 768px) {
+  /* Complete GPU relief on mobile - disable expensive 140px floating Gaussian blurs */
+  .ambient-glow {
+    display: none !important;
+  }
+
+  .space-stars {
+    opacity: 0.12 !important;
+    background-size: 500px 300px !important;
+  }
+
+  /* Eliminate heavy compositing backdrop-filter on mobile; use sleek solid cards */
+  .login-card-glass,
+  .modal-card-glass,
+  .dashboard-panel,
+  .metric-card,
+  .telemetry-deck,
+  .moderation-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0d1224 !important;
+  }
+
+  /* Touch optimizations: Eliminate 300ms tap delay and ensure responsive mobile clicks */
+  button,
+  input,
+  select,
+  textarea,
+  .login-password-input,
+  .btn-login-gradient,
+  .room-pill,
+  .mod-pill,
+  .btn-table-unban,
+  .btn-table-unmute,
+  .btn-table-del {
+    touch-action: manipulation !important;
+  }
+
   .app-container {
     padding: 12px 14px 32px;
   }
 
   .login-gateway-view {
     min-height: 80vh;
-    padding: 12px 8px;
+    padding: 16px 10px;
+    align-items: center;
   }
 
   .login-card-glass {
     padding: 28px 18px;
     border-radius: var(--radius-md);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7) !important;
+    border: 1.5px solid rgba(0, 140, 255, 0.35) !important;
+  }
+
+  .login-input-wrap {
+    touch-action: manipulation;
+  }
+
+  .login-password-input {
+    font-size: 16px !important; /* Critical to prevent iOS auto-zoom */
+    padding: 16px 16px 16px 46px !important;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+  }
+
+  .btn-login-gradient {
+    padding: 14px;
+    font-size: 0.92rem;
   }
 
   .login-title-shimmer {
@@ -2291,7 +2348,6 @@ body {
     margin-bottom: 22px;
   }
 
-  .login-password-input,
   .form-input-modern,
   .form-textarea-modern,
   .form-select-modern {
@@ -2865,4 +2921,55 @@ body {
   filter: brightness(1.15);
   box-shadow: 0 0 18px rgba(220, 38, 38, 0.5);
 }
+
+/* Clear Chat Button */
+.btn-clear-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.btn-clear-chat:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.btn-clear-chat:active {
+  transform: translateY(0);
+}
+
+/* Delete Single Message Button */
+.btn-msg-del-trigger {
+  margin-left: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  vertical-align: middle;
+  touch-action: manipulation;
+}
+
+.btn-msg-del-trigger:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fff;
+  transform: scale(1.1);
+}
+
 
