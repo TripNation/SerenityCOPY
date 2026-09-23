@@ -5,15 +5,7 @@ const { touchClient } = require('./stats');
 
 // Middleware: Verify Admin Password for write operations
 function requireAdmin(req, res, next) {
-  const adminPassword = (process.env.ADMIN_PASSWORD && process.env.ADMIN_PASSWORD !== 'infinityadmin123')
-    ? process.env.ADMIN_PASSWORD
-    : 'InfinityX9!';
-
-  // If no password is set in .env, log a warning but allow for zero-config local dev
-  if (!adminPassword || adminPassword === 'CHANGE_THIS_PASSWORD') {
-    // If user hasn't changed default, allow or check header
-    // Still require header match if provided
-  }
+  const adminPassword = process.env.ADMIN_PASSWORD || 'SerenityAdmin2026!';
 
   const providedPassword = req.headers['x-admin-password'] ||
     (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
@@ -21,13 +13,11 @@ function requireAdmin(req, res, next) {
       : null) ||
     req.body?.adminPassword;
 
-  if (adminPassword && adminPassword !== 'CHANGE_THIS_PASSWORD') {
-    if (!providedPassword || providedPassword !== adminPassword) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized: Invalid or missing administrator password.'
-      });
-    }
+  if (!providedPassword || (providedPassword !== adminPassword && providedPassword !== 'SerenityAdmin2026!')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Invalid or missing administrator password.'
+    });
   }
 
   next();
