@@ -138,10 +138,46 @@ function clearMessages() {
   return true;
 }
 
+/**
+ * Automatically repairs any stored messages that lack complete multi-language translations
+ */
+async function repairMissingTranslations() {
+  try {
+    const { translateMessageToAll } = require('./translator');
+    const msgs = loadMessages();
+    let updated = false;
+
+    for (const m of msgs) {
+      if (!m.message || m.system) continue;
+      const t = m.translations;
+      const isMissingTranslations = !t || !t.es || !t.id || !t.vi || !t.tl || !t.pt ||
+        (t.es === m.message && t.id === m.message && t.vi === m.message && m.message.trim().length > 1);
+
+      if (isMissingTranslations) {
+        const repaired = await translateMessageToAll(m.message);
+        m.translations = repaired;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      persistMessages();
+      console.log('[ChatStorage] Successfully repaired stored message translations.');
+    }
+  } catch (err) {
+    console.warn('[ChatStorage] Repair translations error:', err.message);
+  }
+}
+
+// Run repair 2 seconds after startup
+setTimeout(repairMissingTranslations, 2000);
+
 module.exports = {
   getMessages,
   addMessage,
   clearMessages,
   getChatMuted,
-  setChatMuted
+  setChatMuted,
+  repairMissingTranslations
 };
+

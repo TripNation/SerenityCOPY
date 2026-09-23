@@ -925,6 +925,48 @@ const WebChatRoomLangMap = {
   brazilian: 'pt'
 };
 
+const clientWebTranslations = {};
+const pendingWebTranslations = new Set();
+
+function fetchLiveWebTranslation(msgId, text, langKey) {
+  if (!text || !langKey) return;
+  const reqKey = `${langKey}:${msgId}`;
+  if (pendingWebTranslations.has(reqKey)) return;
+  pendingWebTranslations.add(reqKey);
+
+  fetch('/api/chat/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, targetLang: langKey })
+  })
+  .then(res => res.json())
+  .then(data => {
+    pendingWebTranslations.delete(reqKey);
+    if (data && data.success && data.translated && data.translated !== text) {
+      clientWebTranslations[reqKey] = data.translated;
+      // Update DOM element live if message row is currently visible
+      const row = document.getElementById(`webmsg-${msgId}`);
+      const activeLang = WebChatRoomLangMap[currentWebChatRoom] || 'en';
+      if (row && activeLang === langKey) {
+        const textEl = row.querySelector('.webmsg-text');
+        const headerEl = row.querySelector('.webmsg-header');
+        if (textEl) {
+          textEl.innerHTML = formatWebChatMentions(data.translated);
+        }
+        if (headerEl && !headerEl.querySelector('.webmsg-trans-tag')) {
+          const transTag = document.createElement('span');
+          transTag.className = 'webmsg-trans-tag';
+          transTag.textContent = '(translated)';
+          headerEl.appendChild(transTag);
+        }
+      }
+    }
+  })
+  .catch(() => {
+    pendingWebTranslations.delete(reqKey);
+  });
+}
+
 function initWebChat() {
   fetchWebChatMessages();
   setInterval(fetchWebChatMessages, 2500);
@@ -1163,12 +1205,15 @@ function renderWebChatMessages() {
     let displayMessage = msg.message || '';
     let isTranslated = false;
 
-    if (msg.translations && msg.translations[langKey]) {
-      const trans = msg.translations[langKey];
-      if (trans && trans !== msg.message) {
-        displayMessage = trans;
-        isTranslated = true;
-      }
+    const cacheKey = `${langKey}:${msg.id}`;
+    if (msg.translations && msg.translations[langKey] && msg.translations[langKey] !== msg.message) {
+      displayMessage = msg.translations[langKey];
+      isTranslated = true;
+    } else if (clientWebTranslations[cacheKey]) {
+      displayMessage = clientWebTranslations[cacheKey];
+      isTranslated = true;
+    } else if (langKey !== 'en' && msg.message) {
+      fetchLiveWebTranslation(msg.id, msg.message, langKey);
     }
 
     const colorIdx = Math.abs(msg.id) % nameColors.length;

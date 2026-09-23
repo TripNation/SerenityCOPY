@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const chatStorage = require('../utils/chatStorage');
-const { translateMessageToAll } = require('../utils/translator');
+const { translateMessageToAll, translateText } = require('../utils/translator');
 
 // Rate limiting: map of userId/IP to timestamp of last message
 const lastMessageTimestamps = new Map();
@@ -41,6 +41,24 @@ router.get('/messages', (req, res) => {
   } catch (err) {
     console.error('[ChatRoute] Error fetching messages:', err);
     return res.status(500).json({ error: 'Failed to retrieve chat messages' });
+  }
+});
+
+/**
+ * POST /api/chat/translate
+ * On-demand translation for web frontend or custom clients
+ */
+router.post('/translate', async (req, res) => {
+  try {
+    const { text, targetLang } = req.body || {};
+    if (!text || typeof text !== 'string' || !targetLang) {
+      return res.status(400).json({ error: 'text and targetLang are required' });
+    }
+    const translated = await translateText(text, String(targetLang).toLowerCase());
+    return res.status(200).json({ success: true, original: text, targetLang, translated });
+  } catch (err) {
+    console.error('[ChatRoute] Translate error:', err);
+    return res.status(500).json({ error: 'Translation failed' });
   }
 });
 
